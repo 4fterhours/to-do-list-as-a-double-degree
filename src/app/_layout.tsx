@@ -9,7 +9,9 @@ import { useTheme } from '../../theme/useTheme';
 
 /**
  * Root layout Expo Router.
- * - Satu route saja (`index`), tanpa tab navigator (brief 13).
+ * - Tanpa tab navigator (brief 12): Hari Ini adalah route root, sedangkan
+ *   pengelolaan jadwal & tugas adalah route bertumpuk (`/jadwal`, `/tugas`)
+ *   yang dibuka dari Hari Ini dan ditutup dengan tombol kembali.
  * - Status bar native mengikuti tema perangkat.
  * - Safe area perangkat, bukan tinggi 44 dp tetap (brief 09).
  * - `SQLiteProvider` membuka database persisten dan menjalankan `onInit`

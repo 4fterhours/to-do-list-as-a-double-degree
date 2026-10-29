@@ -36,7 +36,7 @@ export function NextClassCard({ schedule, now }: Props) {
     return (
       <View
         style={[
-          styles.card,
+          styles.cardBase,
           { backgroundColor: colors.class.background, borderColor: colors.class.border },
         ]}
         accessible
@@ -70,7 +70,8 @@ export function NextClassCard({ schedule, now }: Props) {
   return (
     <View
       style={[
-        styles.card,
+        styles.cardBase,
+        styles.classCardMinHeight,
         { backgroundColor: colors.class.background, borderColor: colors.class.border },
       ]}
       accessible
@@ -114,11 +115,16 @@ export function NextClassCard({ schedule, now }: Props) {
 }
 
 const styles = StyleSheet.create({
-  card: {
-    minHeight: geometry.heroMinimumHeight,
+  // Dasar kartu, dipakai kedua kondisi (brief 08: radius.card, padding lg).
+  cardBase: {
     borderRadius: radius.card,
     borderWidth: geometry.borderWidth,
     padding: spacing.lg,
+  },
+  // Hanya kartu berisi kelas yang dikunci tinggi minimumnya, agar footer
+  // countdown selalu duduk di dasar kartu (brief 03: kartu minimum 252 dp).
+  classCardMinHeight: {
+    minHeight: geometry.heroMinimumHeight,
   },
   overline: {
     ...typography.label,

@@ -6,7 +6,10 @@
 Dokumen ini adalah salinan kerja Design Brief sumber untuk proyek ini. Blok **Token TypeScript** di bawah adalah acuan utama nilai visual, dan implementasinya berada di [`lib/tokens.ts`](./lib/tokens.ts). Bila dokumen ini dan kode berbeda, blok token sumber yang menang.
 
 - **Stack:** React Native + Expo (SDK 58) + TypeScript + Expo Router.
-- **Cakupan:** satu route (`/`), tanpa tab navigator, tanpa CRUD.
+- **Cakupan brief ini:** layar **Hari Ini** sebagai mockup — satu route (`/`), tanpa tab navigator,
+  tanpa kontrol CRUD. Larangan CRUD/navigasi di §03, §12, dan §13 mengacu pada cakupan mockup itu;
+  layar pengelolaan Jadwal & Tugas adalah perluasan produk yang ditetapkan di `PRD.md` §6.2–6.3
+  (lihat catatan cakupan di §12 dan bagian "Layar pengelolaan (Tahap 5)").
 - **Target platform:** Android (prioritas), iOS (kompatibel), web (sekunder).
 
 ---
@@ -29,7 +32,8 @@ Dalam beberapa detik pengguna mengetahui kelas berikutnya, kapan dimulai, lokasi
 
 ### 03 / Struktur layout
 
-Frame 393 × 852 dp. Status bar 44 dp pada mockup; implementasi memakai safe-area perangkat, bukan nilai tetap. Padding horizontal 24 dp. Header: judul 32/40 dan tanggal 16/24, jarak 4. Jarak header–kartu 24. Kartu minimum 252 dp, padding 24. Ringkasan kelas padding vertikal 24. Divider 1 dp lalu judul tugas dengan padding atas 24. Baris tugas padding vertikal 16, tanpa kartu bertumpuk. Area konten boleh digulir; tidak ada navigasi aplikasi atau kontrol CRUD.
+Frame 393 × 852 dp. Status bar 44 dp pada mockup; implementasi memakai safe-area perangkat, bukan nilai tetap. Padding horizontal 24 dp. Header: judul 32/40 dan tanggal 16/24, jarak 4. Jarak header–kartu 24. Kartu minimum 252 dp, padding 24. Ringkasan kelas padding vertikal 24. Divider 1 dp lalu judul tugas dengan padding atas 24. Baris tugas padding vertikal 16, tanpa kartu bertumpuk. Area konten boleh digulir; tidak ada navigasi aplikasi atau kontrol CRUD **pada layar mockup ini**
+(pengelolaan ada di layar terpisah — lihat §12).
 
 ### 04 / Typography
 
@@ -67,9 +71,26 @@ Mockup membekukan Senin, 26 Oktober 2026 pukul 09.20 untuk konsistensi. Hukum Da
 
 Tanpa gradient dekoratif, glassmorphism, transparansi berlebihan, neon, bayangan tebal, kartu seragam bertumpuk, banyak aksen, ikon dekoratif, emoji UI, grafik/statistik tidak perlu, ilustrasi stok, atau foto tak relevan. Tanpa bottom navigation, tambah, form, CRUD, atau tombol tanpa fungsi. Jangan mengecilkan teks demi menjejalkan konten. Tidak ada efek yang sulit diterapkan atau nilai visual yang tidak masuk token. Kontrol pada halaman review berada di luar mockup dan bukan bagian layar aplikasi.
 
+> **Catatan cakupan (Tahap 5B).** Daftar larangan di atas — termasuk "tanpa bottom navigation,
+> tambah, form, CRUD, atau tombol tanpa fungsi" — mengikat **tampilan layar Hari Ini** sebagaimana
+> digambarkan mockup: satu kartu kelas, satu ringkasan sisa kelas, satu daftar tugas, tanpa tab.
+> Sejak Tahap 5, produk menambahkan **layar pengelolaan Jadwal dan Tugas** sesuai `PRD.md` §6.2–6.3.
+> Perluasan itu:
+>
+> - **tidak** mengubah hierarki, tipografi, spacing, warna, atau token apa pun di dokumen ini;
+> - tetap **tanpa tab navigator** — pengelolaan dibuka lewat dua tombol teks di bawah tanggal dan
+>   ditutup dengan tombol kembali;
+> - memakai komponen yang sama (`surface`, `border`, `accent`, `radius.small`, `touchTarget`) dan
+>   dilarang memakai gradient, bayangan, glassmorphism, warna aksen tambahan, ikon dekoratif, atau
+>   nilai visual yang tidak ada di token;
+> - tetap mematuhi §09 (target sentuh 48 dp hanya pada aksi, kontras, teks wrap tanpa ellipsis) dan
+>   §10 (state kosong/loading/error yang sama).
+
+Semua spesifikasi visual lain di dokumen ini tetap berlaku apa adanya.
+
 ### 13 / Panduan React Native + Expo
 
-Pisahkan `tokens.ts`, `TodayScreen`, `NextClassCard`, `RemainingClasses`, `TaskRow` dan `StatusLabel` saat produksi. Gunakan TypeScript, `SafeAreaView`, `View`, `Text`, `FlatList` dan Ionicons. Tidak perlu font kustom, aset gambar, blur, atau gradient. Pilih tema melalui `useColorScheme`; referensikan tokens berdasarkan nama semantik, bukan hex di komponen. Gunakan Expo Router `app/index.tsx` untuk menampilkan `TodayScreen`; cukup satu route tanpa tab navigator. Status bar native mengikuti tema, status bar simulasi hanya untuk mockup web. `FlatList` menyimpan header kelas dan data tugas; empty state melalui `ListEmptyComponent`. Hitung ulang data saat app aktif atau pergantian hari. Tidak ada dependensi backend untuk fondasi ini.
+Pisahkan `tokens.ts`, `TodayScreen`, `NextClassCard`, `RemainingClasses`, `TaskRow` dan `StatusLabel` saat produksi. Gunakan TypeScript, `SafeAreaView`, `View`, `Text`, `FlatList` dan Ionicons. Tidak perlu font kustom, aset gambar, blur, atau gradient. Pilih tema melalui `useColorScheme`; referensikan tokens berdasarkan nama semantik, bukan hex di komponen. Gunakan Expo Router `app/index.tsx` untuk menampilkan `TodayScreen`; pada mockup Hari Ini cukup satu route tanpa tab navigator (route pengelolaan ditambahkan kemudian — lihat catatan cakupan §12). Status bar native mengikuti tema, status bar simulasi hanya untuk mockup web. `FlatList` menyimpan header kelas dan data tugas; empty state melalui `ListEmptyComponent`. Hitung ulang data saat app aktif atau pergantian hari. Tidak ada dependensi backend untuk fondasi ini.
 
 ---
 
@@ -133,11 +154,14 @@ Bagian ini **bukan** bagian dari brief desain. Isinya mencatat bagaimana brief d
 
 ```
 src/app/_layout.tsx   Root layout Expo Router: SafeAreaProvider, StatusBar, Stack tanpa header
-src/app/index.tsx      Route "/" — saat ini kerangka minimal, kelak merender TodayScreen
-components/           NextClassCard, RemainingClasses, TaskRow, StatusLabel (tahap komponen)
+src/app/index.tsx      Route "/" — TodayScreen (layar utama)
+src/app/jadwal/        Route "/jadwal" (daftar), "/jadwal/baru", "/jadwal/[id]" (ubah + hapus)
+src/app/tugas/         Route "/tugas" (daftar), "/tugas/baru", "/tugas/[id]" (ubah + hapus)
+components/           Kartu & baris Hari Ini, plus layar/komponen pengelolaan (Tahap 5)
 lib/tokens.ts         SATU-SATUNYA sumber nilai visual (mengikuti blok token di atas)
 theme/useTheme.ts     Logika pemilihan tema; tidak menyimpan nilai visual
-db/                    Skema, migrasi, seed, akses data (tahap database)
+db/                    Skema, migrasi, seed, akses data (tanpa SQL di komponen)
+hooks/                useTodayData (data + waktu Hari Ini), useFocusQuery (query sadar fokus)
 ```
 
 `components/` dan `db/` baru dibuat bersama file pertamanya, karena Git tidak melacak folder kosong dan `.gitkeep` membuat `expo lint` gagal ("all files ignored"). App berada di `src/app/` sesuai lokasi bawaan template Expo SDK 58.
@@ -188,8 +212,32 @@ Tidak ada token lain di luar blok sumber. Tidak ada hex, ukuran font, radius, at
 - **Komponen:** `TodayScreen` (satu `FlatList`), `NextClassCard`, `RemainingClasses`, `TaskRow`, `StatusLabel`, ditambah `hooks/useTodayData.ts` (data + waktu) dan `lib/time.ts` (fungsi waktu murni).
 - **Label badge deadline** (tidak pernah hanya warna): `Terlambat N jam` / `Sisa N menit` / `Sisa N jam` / `Sisa N hari` / `Baru saja lewat`. Pembulatan ke BAWAH untuk jam & hari, konsisten dengan contoh brief "Terlambat 9 jam" (9,35 jam). Countdown kelas dibulatkan ke ATAS per menit sesuai brief 11.
 - **Tanggal deadline:** `Hari ini, 23.59`, `Kemarin, 23.59`, `Besok, 23.59`, selain itu `28 Oktober, 23.59` (+ tahun bila beda tahun). Nama hari/bulan ditulis eksplisit di `lib/time.ts`, tidak memakai `Intl`, agar hasil sama di Hermes.
-- **Data:** nama mata kuliah pada baris tugas diambil lewat `LEFT JOIN` ke `schedules` (query baca, skema tidak berubah). Tugas tanpa jadwal memakai fallback "Tugas mandiri".
+- **Data:** nama mata kuliah pada baris tugas diambil dari `tasks.course_id` → `courses.name` (skema v2), dengan cadangan `schedules.course_name` untuk baris lama. Tugas tanpa relasi memakai fallback "Tugas mandiri".
 - **Waktu:** jam lokal perangkat; `now` diperbarui tiap 30 detik; data dibaca ulang saat app kembali aktif dan saat tanggal lokal berganti. Tidak ada waktu beku mockup.
+- **Kartu kosong tanpa tinggi minimum.** `geometry.heroMinimumHeight` (252 dp) hanya diterapkan bila kartu benar-benar memuat kelas — di sana tinggi minimum berguna agar footer countdown duduk di dasar kartu (brief 03). Pada state "Kelas hari ini selesai." (brief 10) kartu hanya berisi judul + satu keterangan, sehingga tinggi mengikuti isi; memaksakan 252 dp menyisakan ruang kosong besar tanpa informasi. Radius, border, dan padding tetap dari token yang sama.
+
+### Layar pengelolaan (Tahap 5)
+
+Layar Hari Ini tetap layar utama dan satu-satunya yang dibuka saat app dibuka. Tidak ada tab navigator (brief 12); pengelolaan dijangkau lewat **dua tombol teks di bawah tanggal** — "Jadwal" dan "Tugas" — memakai `Stack` biasa dengan tombol kembali.
+
+| Elemen | Komponen | Token yang dipakai |
+|---|---|---|
+| Tombol masuk pengelolaan | `TodayScreen` → `ManageLinks` | `geometry.touchTarget` (48 dp), `radius.small`, `spacing.md`/`xxs`, `colors.surface`/`surfaceSubtle`/`border`/`accent`, `geometry.iconSmall` |
+| Judul + tombol kembali | `ScreenHeader` | `typography.title`, `spacing.lg`, `touchTarget` |
+| Label & pesan galat field | `FormField` | `typography.caption`, `typographyExtras.captionStrong` (label), `colors.overdue.text` (galat) |
+| Isian teks | `TextField` | `typography.body`, `radius.small`, `colors.surface`/`border`/`text.muted` |
+| Pilihan hari & mata kuliah | `ChipRow` | `geometry.touchTarget`, `radius.small`, `colors.accent` (aktif) |
+| Tanggal & jam | `DateTimeField` (`@react-native-community/datetimepicker`) | sama seperti `TextField`; di web memakai isian teks `DD/MM/YYYY` dan `HH:mm` karena picker native tidak tersedia |
+| Tombol aksi | `ButtonRow`, `PrimaryButton`, `DangerButton` | `geometry.touchTarget`, `radius.small`, `colors.accent`/`overdue.background` |
+| Konfirmasi hapus | `ConfirmDialog` | `colors.surface`, `radius.large`, `spacing.lg`, `accent`/`overdue.text` |
+
+Aturan yang dijaga:
+
+- **Riwayat tidak terhapus tanpa konfirmasi.** Hapus jadwal dan hapus tugas selalu melewati `ConfirmDialog` dengan nama data yang akan dihapus.
+- **Status selesai bukan sekadar warna.** Baris tugas selesai memakai ikon centang + teks coret, bukan hanya perubahan warna (brief 07/08).
+- **Mata kuliah itu identitas, bukan satu sesi.** Pemilih mata kuliah di form tugas membaca tabel `courses`; satu mata kuliah dengan dua sesi mingguan tetap muncul satu kali.
+- **Tanggal & jam selalu waktu lokal perangkat**, disimpan sebagai epoch milidetik (`deadline_at`) dan sebagai teks `HH:mm` untuk jadwal mingguan.
+- **Pesan galat di dua tingkat**: per field (validasi) dan di atas tombol simpan (kegagalan SQLite), tanpa menghilangkan isian pengguna.
 
 ### Deviasi sadar terhadap brief
 
@@ -197,7 +245,7 @@ Tidak ada token lain di luar blok sumber. Tidak ada hex, ukuran font, radius, at
 2. **Status bar.** `geometry.statusBarHeight` (44) hanya nilai mockup; aplikasi memakai safe-area perangkat (§03/§09).
 3. **`fontFamily` bertipe `string`.** `Platform.select` bertipe `string | undefined`. Nilai `default` (stack web) dipakai sebagai fallback, sehingga tipenya ditegaskan `string` dan tidak ada `fontFamily: undefined` yang tidak sengaja.
 4. **Hex di `app.json`.** `expo-splash-screen.backgroundColor` (`#FAFAF7`) dan `android.adaptiveIcon.backgroundColor` adalah konfigurasi JSON statis yang tidak dapat mengimpor `lib/tokens.ts`. Nilai splash disamakan dengan `color.background`; bila token berubah, ubah juga di sini.
-5. **Sumber data.** Layar membaca SQLite lewat `db/schedules.ts` dan `db/tasks.ts` (tanpa SQL di komponen). Tidak ada CRUD: tidak ada operasi tulis di luar migrasi & seed. Catatan platform: SQLite di web memakai `SharedArrayBuffer`/`Atomics`, sehingga butuh konteks cross-origin isolated (COOP/COEP). Server dev Metro tidak mengirim header itu, jadi di browser inisialisasi database kemungkinan gagal dan layar menampilkan pesan error; Android/iOS tidak terpengaruh.
+5. **Sumber data.** Layar membaca & menulis SQLite lewat `db/schedules.ts`, `db/tasks.ts`, dan `db/courses.ts` (tanpa SQL di komponen). Sejak Tahap 5 operasi tulis (tambah/ubah/hapus/tandai selesai) memang bagian dari aplikasi; migrasi & seed tetap satu-satunya jalur yang mengisi data contoh. Catatan platform: SQLite di web memakai `SharedArrayBuffer`/`Atomics`, sehingga butuh konteks cross-origin isolated (COOP/COEP). Server dev Metro tidak mengirim header itu, jadi di browser inisialisasi database kemungkinan gagal dan layar menampilkan pesan error; Android/iOS tidak terpengaruh.
 6. **Kontras.** Pasangan warna diukur terhadap WCAG AA memakai rumus luminans relatif (dihitung sekali dari nilai di `lib/tokens.ts`; belum ada skrip otomatis di repo). Semua pasangan teks **lulus 4.5:1**, light maupun dark.
 
    | Pasangan | Light | Dark |

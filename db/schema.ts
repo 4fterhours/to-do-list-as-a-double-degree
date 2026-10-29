@@ -13,10 +13,21 @@
  * - `tasks.deadline_at`: INTEGER epoch milidetik UTC. Satu angka absolut yang
  *   konsisten, mudah diurutkan (`ORDER BY deadline_at`), dan mudah diformat ke
  *   waktu lokal perangkat (`new Date(deadline_at).toLocaleString()`).
+ *
+ * Identitas mata kuliah (skema v2):
+ * - Sejak v2, mata kuliah adalah entitas sendiri (`courses`). Satu mata kuliah
+ *   boleh punya BANYAK entri jadwal mingguan (mis. kuliah + responsi) dan
+ *   BANYAK tugas.
+ * - `schedules.course_id` dan `tasks.course_id` menunjuk `courses.id`. Inilah
+ *   relasi yang dipakai aplikasi.
+ * - `schedules.course_name` (v1) dan `tasks.schedule_id` (v1) DIPERTAHANKAN
+ *   hanya demi kompatibilitas data lama: `course_name` masih ditulis sebagai
+ *   salinan nama (karena kolomnya NOT NULL + UNIQUE sejak v1) dan
+ *   `schedule_id` tidak lagi dipakai UI. Keduanya bukan sumber kebenaran lagi.
  */
 
 /** Versi skema saat ini, disimpan di `PRAGMA user_version`. */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 /**
  * Ambang "deadline dekat" untuk penentuan warna amber vs info (brief 11):
@@ -67,4 +78,42 @@ CREATE INDEX IF NOT EXISTS idx_tasks_pending_deadline
 
 CREATE INDEX IF NOT EXISTS idx_tasks_schedule
   ON tasks (schedule_id);
+`;
+
+/**
+ * Skema versi 2 — identitas mata kuliah.
+ *
+ * Bersifat ADITIF: tidak ada tabel yang dibuat ulang dan tidak ada data yang
+ * dihapus. Kolom baru ditambahkan lalu diisi (backfill) dari data v1 yang ada,
+ * sehingga jadwal, tugas, deadline, dan status selesai milik pengguna tetap
+ * utuh.
+ */
+export const SCHEMA_V2_SQL = `
+CREATE TABLE IF NOT EXISTS courses (
+  id   INTEGER PRIMARY KEY,
+  name TEXT NOT NULL COLLATE NOCASE CHECK (length(trim(name)) > 0),
+  UNIQUE (name)
+);
+
+-- Satu baris per nama mata kuliah yang sudah ada di jadwal v1.
+INSERT OR IGNORE INTO courses (name)
+SELECT DISTINCT trim(course_name) FROM schedules ORDER BY trim(course_name);
+
+-- Relasi jadwal -> mata kuliah (nullable karena ADD COLUMN tidak boleh NOT NULL
+-- tanpa nilai default; seluruh baris lama langsung diisi di bawah).
+ALTER TABLE schedules ADD COLUMN course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE;
+
+UPDATE schedules
+   SET course_id = (SELECT c.id FROM courses c WHERE c.name = trim(schedules.course_name))
+ WHERE course_id IS NULL;
+
+-- Relasi tugas -> mata kuliah, di-backfill dari jadwal yang ditautkan di v1.
+ALTER TABLE tasks ADD COLUMN course_id INTEGER REFERENCES courses(id) ON DELETE SET NULL;
+
+UPDATE tasks
+   SET course_id = (SELECT s.course_id FROM schedules s WHERE s.id = tasks.schedule_id)
+ WHERE course_id IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_schedules_course ON schedules (course_id);
+CREATE INDEX IF NOT EXISTS idx_tasks_course ON tasks (course_id);
 `;

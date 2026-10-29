@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import type { ReactNode } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,9 +23,11 @@ import { TaskRow } from './TaskRow';
 /**
  * Layar Hari Ini (brief 02 & 03).
  *
- * Satu FlatList memuat header (judul + tanggal), kartu kelas, ringkasan sisa
- * kelas, judul seksi tugas, lalu baris-baris tugas (brief 13). Area konten
- * boleh digulir; tidak ada navigasi, tab, form, atau CRUD.
+ * Satu FlatList memuat header (judul + tanggal + dua tautan pengelolaan),
+ * kartu kelas, ringkasan sisa kelas, judul seksi tugas, lalu baris-baris tugas
+ * (brief 13). Area konten boleh digulir. Layar ini tetap informatif: tidak ada
+ * tab, form, atau tombol hapus/ubah di sini — CRUD dilakukan di layar
+ * `/jadwal` dan `/tugas` yang dibuka dari tautan di bawah tanggal.
  */
 export function TodayScreen() {
   const { colors } = useTheme();
@@ -82,9 +85,53 @@ function TodayHeader({ now, children }: { now: Date; children: ReactNode }) {
 
       <Text style={[styles.date, { color: colors.text.secondary }]}>{formatLongDate(now)}</Text>
 
+      <ManageLinks />
+
       <View style={styles.headerGap} />
 
       {children}
+    </View>
+  );
+}
+
+/* ------------------------------------------------------------------------- */
+/* Akses ke pengelolaan data                                                  */
+/* ------------------------------------------------------------------------- */
+
+/**
+ * Dua pintu masuk ke pengelolaan: jadwal dan tugas. Ditempatkan tepat di bawah
+ * tanggal agar mudah ditemukan tanpa menambah navigasi bawah (brief 12), dan
+ * tetap memakai token (surface, border, radius.small, touchTarget 48 dp).
+ */
+function ManageLinks() {
+  const { colors } = useTheme();
+  const router = useRouter();
+
+  const links = [
+    { label: 'Jadwal', icon: 'calendar-outline' as const, href: '/jadwal' as const },
+    { label: 'Tugas', icon: 'list-outline' as const, href: '/tugas' as const },
+  ];
+
+  return (
+    <View style={styles.linkRow}>
+      {links.map((link) => (
+        <Pressable
+          key={link.href}
+          onPress={() => router.push(link.href)}
+          accessibilityRole="button"
+          accessibilityLabel={`Kelola ${link.label.toLowerCase()}`}
+          style={({ pressed }) => [
+            styles.linkButton,
+            {
+              backgroundColor: pressed ? colors.surfaceSubtle : colors.surface,
+              borderColor: colors.border,
+            },
+          ]}
+        >
+          <Ionicons name={link.icon} size={geometry.iconSmall} color={colors.accent} />
+          <Text style={[styles.linkLabel, { color: colors.text.primary }]}>{link.label}</Text>
+        </Pressable>
+      ))}
     </View>
   );
 }
@@ -228,6 +275,25 @@ const styles = StyleSheet.create({
   },
   headerGap: {
     height: spacing.lg,
+  },
+  linkRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+    marginTop: spacing.md,
+  },
+  linkButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: geometry.touchTarget,
+    paddingHorizontal: spacing.md,
+    borderWidth: geometry.borderWidth,
+    borderRadius: radius.small,
+    gap: spacing.xxs,
+  },
+  linkLabel: {
+    ...typography.body,
+    fontFamily,
   },
   divider: {
     height: geometry.dividerWidth,

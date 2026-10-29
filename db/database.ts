@@ -18,7 +18,7 @@
 
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import { SCHEMA_V1_SQL, SCHEMA_VERSION } from './schema';
+import { SCHEMA_V1_SQL, SCHEMA_V2_SQL, SCHEMA_VERSION } from './schema';
 import { seedInitialData } from './seed';
 
 /** Nama file database persisten di direktori dokumen aplikasi. */
@@ -35,6 +35,10 @@ type Migration = {
  *
  * Versi 1 membuat tabel DAN mengisi seed: seed hanya ikut pada pembuatan
  * database baru, tidak pernah pada pembukaan berikutnya.
+ *
+ * Versi 2 menambahkan tabel `courses` + relasi `course_id`, lalu mengisi
+ * (backfill) dari data v1. Aditif: tidak ada tabel yang dibuat ulang dan tidak
+ * ada baris pengguna yang dihapus.
  */
 const MIGRATIONS: readonly Migration[] = [
   {
@@ -42,6 +46,12 @@ const MIGRATIONS: readonly Migration[] = [
     up: async (db) => {
       await db.execAsync(SCHEMA_V1_SQL);
       await seedInitialData(db);
+    },
+  },
+  {
+    version: 2,
+    up: async (db) => {
+      await db.execAsync(SCHEMA_V2_SQL);
     },
   },
 ];

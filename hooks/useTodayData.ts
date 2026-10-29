@@ -12,6 +12,7 @@
  *   berganti (pergantian hari).
  */
 
+import { useFocusEffect } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useEffect, useState } from 'react';
 import { AppState } from 'react-native';
@@ -91,6 +92,15 @@ export function useTodayData(): UseTodayDataResult {
     const interval = setInterval(() => setNow(new Date()), TICK_MS);
     return () => clearInterval(interval);
   }, []);
+
+  // Kembali ke layar Hari Ini (mis. setelah menyimpan jadwal/tugas di layar
+  // lain): baca ulang dari SQLite agar tampilan mengikuti data terbaru.
+  useFocusEffect(
+    useCallback(() => {
+      setNow(new Date());
+      setReloadToken((token) => token + 1);
+    }, [])
+  );
 
   // Kembali aktif: segarkan jam dan data (mis. perangkat tidur semalaman).
   useEffect(() => {
