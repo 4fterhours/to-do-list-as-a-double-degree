@@ -13,6 +13,7 @@ import {
 } from '../db/schedules';
 import type { Course } from '../db/types';
 import { useFocusQuery } from '../hooks/useFocusQuery';
+import { syncClassReminders } from '../lib/notificationSync';
 import { breakpoint, fontFamily, spacing, typography } from '../lib/tokens';
 import { clockToMinutes } from '../lib/time';
 import {
@@ -296,6 +297,10 @@ function ScheduleForm({
         await updateSchedule(db, scheduleId, input);
       }
 
+      // Pengingat mengikuti data terbaru; kegagalan notifikasi tidak boleh
+      // membatalkan penyimpanan jadwal yang sudah berhasil.
+      void syncClassReminders(db);
+
       router.back();
     } catch (error) {
       console.error('[jadwal] Gagal menyimpan jadwal:', error);
@@ -314,6 +319,7 @@ function ScheduleForm({
     setSubmitError(null);
     try {
       await deleteSchedule(db, scheduleId);
+      void syncClassReminders(db);
       setConfirmVisible(false);
       router.back();
     } catch (error) {
@@ -452,7 +458,7 @@ function ScheduleForm({
 
           <FormField
             label="Menit pengingat"
-            hint="Disimpan untuk notifikasi tahap berikutnya"
+            hint="0 berarti tepat saat kelas dimulai"
             error={errors.reminderMinutes}
           >
             <TextField

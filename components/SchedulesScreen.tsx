@@ -17,6 +17,7 @@ import {
 import { formatTimeRange } from '../lib/time';
 import { useTheme } from '../theme/useTheme';
 import { PrimaryButton } from './Buttons';
+import { ReminderStatusCard } from './ReminderStatusCard';
 import { ScreenHeader } from './ScreenHeader';
 
 /**
@@ -68,6 +69,7 @@ export function SchedulesScreen() {
                   : 'Memuat jadwal…'
               }
             />
+            <ReminderStatusCard />
             {state.status === 'error' ? (
               <ReadError message={state.message} onRetry={reload} />
             ) : null}

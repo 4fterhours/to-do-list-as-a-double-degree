@@ -141,7 +141,12 @@ Prioritas: **P0** = wajib untuk tahap 1–5, **P1** = wajib untuk rilis, **P2** 
 | ID | Kebutuhan | Prioritas |
 |---|---|---|
 | FR-D1 | Menit pengingat per jadwal dapat disimpan dan diedit **sebelum** fitur notifikasi ada | P0 (bagian dari form jadwal) |
-| FR-D2 | Notifikasi lokal terjadwal memakai `expo-notifications` (izin, penjadwalan ulang saat jadwal berubah, pembatalan saat jadwal dihapus) | P1 — **belum diimplementasikan** |
+| FR-D2 | Notifikasi lokal terjadwal memakai `expo-notifications`: satu notifikasi berulang mingguan per jadwal, dijadwalkan ulang saat jadwal berubah, dibatalkan saat jadwal dihapus | P1 — **diimplementasikan (Tahap 6)**, belum diuji di perangkat |
+| FR-D2a | Notification channel Android `class-reminders` (nama "Pengingat Kuliah", importance DEFAULT) dibuat **sebelum** izin diminta | P1 — diimplementasikan |
+| FR-D2b | Izin diminta hanya lewat aksi pengguna ("Aktifkan pengingat"); penolakan izin tidak menghalangi CRUD jadwal | P1 — diimplementasikan |
+| FR-D2c | Waktu pengingat = jam mulai kelas − menit pengingat, memakai jam dinding lokal perangkat; bila hasilnya melewati tengah malam, notifikasi jatuh pada hari sebelumnya | P1 — diimplementasikan |
+| FR-D5 | `menit pengingat = 0` berarti notifikasi berbunyi **tepat saat kelas dimulai** (bukan berarti pengingat dimatikan) | P1 |
+| FR-D6 | Tidak memakai exact alarm; pengiriman best-effort. Ketepatan dapat tergeser beberapa menit pada Android 12+ (Doze) | Batasan |
 | FR-D3 | Tidak ada push notification dari server | Batasan |
 | FR-D4 | Fitur notifikasi tidak boleh dianggap selesai tanpa implementasi **dan** pengujian di perangkat | Batasan |
 
@@ -206,7 +211,22 @@ Format: kondisi → hasil yang harus teramati. Semua langkah dapat diuji pada ap
 | AC-C6 | Menutup aplikasi sepenuhnya lalu membukanya kembali: jumlah, judul, deadline, relasi, dan status selesai tidak berubah. |
 | AC-C7 | Form dengan judul kosong tidak menyimpan apa pun dan menandai field judul. |
 
-### 7.4 Data & persistensi
+### 7.4 Notifikasi lokal
+
+| ID | Kriteria penerimaan |
+|---|---|
+| AC-D1 | Layar Jadwal menampilkan status pengingat: "Pengingat kelas aktif" (dengan jumlah jadwal) atau "Pengingat belum aktif" + tombol **Aktifkan pengingat**. |
+| AC-D2 | Menekan "Aktifkan pengingat" memunculkan dialog izin sistem (Android 13+ / iOS) setelah channel `class-reminders` dibuat; pada Android 10 tidak ada dialog khusus dan status langsung aktif. |
+| AC-D3 | Bila izin ditolak: aplikasi tidak crash, jadwal tetap bisa ditambah/diubah/dihapus, dan status menjelaskan pengingat belum aktif. Bila izin tidak bisa diminta lagi, tersedia tombol **Buka Pengaturan**. |
+| AC-D4 | Jadwal Senin 10.00 dengan pengingat 15 menit menghasilkan notifikasi berulang setiap Senin 09.45 (jam lokal), bukan tanggal tetap. |
+| AC-D5 | Jadwal dengan pengingat yang melewati tengah malam (mis. Senin 07.00, 600 menit) berbunyi **Minggu 21.00** — bukan Senin. |
+| AC-D6 | Mengubah jam mulai/hari/menit pengingat/mata kuliah/ruang lalu menyimpan: notifikasi lama dibatalkan dan diganti yang baru; hanya ada satu notifikasi per jadwal. |
+| AC-D7 | Menghapus jadwal menghapus pengingatnya; jadwal lain tidak terpengaruh (termasuk sesi lain dari mata kuliah yang sama). |
+| AC-D8 | Menutup dan membuka aplikasi berulang kali tidak menggandakan notifikasi. |
+| AC-D9 | Notifikasi muncul saat aplikasi di latar belakang/tertutup (bukan hanya saat aplikasi dibuka). |
+| AC-D10 | Isi notifikasi: judul "<Mata kuliah> akan dimulai"; isi menyebut jam mulai dan ruang; tanpa ruang, kalimat tetap natural. |
+
+### 7.5 Data & persistensi
 
 | ID | Kriteria penerimaan |
 |---|---|
@@ -314,7 +334,7 @@ Status mengacu pada **kode aktual**, bukan pada rencana. Rincian bukti ada di `I
 | 3 | Layar Hari Ini | Kartu kelas, sisa kelas, daftar tugas, state loading/error/kosong, waktu lokal | **SELESAI** (kode) · **BELUM DIUJI** di perangkat |
 | 4 | CRUD mata kuliah, jadwal, tugas | Form & daftar jadwal, form & daftar tugas, relasi mata kuliah, migrasi v2 | **SEBAGIAN** — jadwal & tugas SELESAI di kode; layar kelola mata kuliah belum ada; semua **BELUM DIUJI** di perangkat |
 | 5 | Pengujian native Android & kompatibilitas UI | Build EAS, pasang APK di Android 10, checklist `ANDROID_TESTING.md`, perbaikan temuan | **BELUM DIMULAI** (belum ada build/APK) |
-| 6 | Notifikasi lokal | `expo-notifications`, izin, penjadwalan ulang saat jadwal berubah, pembatalan saat dihapus | **BELUM DIMULAI** |
+| 6 | Notifikasi lokal | `expo-notifications`, channel, izin, penjadwalan ulang saat jadwal berubah, pembatalan saat dihapus | **SELESAI di kode** (`lib/classReminders.ts`, `lib/notifications.ts`, `lib/notificationScheduler.ts`, `lib/notificationSync.ts`, `hooks/useReminderStatus.ts`, `components/ReminderStatusCard.tsx`) · **BELUM DIUJI** di perangkat — perlu dev build baru |
 | 7 | Penyempurnaan, regresi, persiapan rilis | Regresi menyeluruh, aksesibilitas, performa, ikon/splash final, rilis internal | **BELUM DIMULAI** |
 
 Urutan ini mengikat: tahap berikutnya tidak dimulai sebelum tahap sebelumnya dilaporkan dan disetujui.
@@ -353,3 +373,4 @@ Sebuah tahap dianggap selesai hanya jika **semua** terpenuhi:
 |---|---|---|
 | 0.1 | 2026-10-29 | Dokumen awal: audit repository, kebutuhan produk, kriteria penerimaan, audit relasi tugas–mata kuliah, roadmap berbasis kode aktual |
 | 0.2 | 2026-10-29 | Tahap 5B: tambah FR-B5a (jadwal duplikat) + AC-B10/AC-B11, perjelas status relasi mata kuliah (pemilih identitas), tutup risiko R3 & R5 |
+| 0.3 | 2026-10-30 | Tahap 6: notifikasi lokal — FR-D2a..D2c, FR-D5, FR-D6, AC-D1..AC-D10, status roadmap tahap 6 |

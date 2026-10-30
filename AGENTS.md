@@ -86,7 +86,8 @@ Docs: https://docs.expo.dev/eas/index.md
 ### B3. Aturan produk
 
 - Single-user, 100% lokal. Tidak ada akun, backend, API server, sinkronisasi cloud, atau push notification dari server.
-- Notifikasi hanya boleh **lokal** (`expo-notifications`) dan hanya pada tahapnya sendiri (tahap 6). Menyimpan/mengedit menit pengingat bukan implementasi notifikasi.
+- Notifikasi hanya boleh **lokal** (`expo-notifications`). Dilarang: Expo Push Token, `getExpoPushTokenAsync`, FCM, atau server notifikasi.
+- Aturan notifikasi yang sudah berlaku: channel Android `class-reminders`, izin hanya diminta lewat aksi pengguna, pengingat disinkronkan dari SQLite lewat rekonsiliasi idempoten (bukan `cancelAllScheduledNotificationsAsync`), dan tidak ada tabel baru untuk menyimpan ID notifikasi.
 - Jangan menambah fitur di luar `PRD.md` tanpa persetujuan.
 - Jangan menambah dependency tanpa alasan teknis yang dijelaskan dan persetujuan.
 

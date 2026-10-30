@@ -10,14 +10,17 @@ Studio, JDK, Android SDK, atau `adb`: kompilasi berjalan di server Expo (EAS Bui
 | SDK | Expo 58.0.19 · React Native 0.88.0 |
 | expo-dev-client | 58.0.15 (tetap terpasang, dipakai profil `development`) |
 | Picker tanggal/jam | `@react-native-community/datetimepicker` 9.2.1 (**modul native**) |
+| Notifikasi lokal | `expo-notifications` 58.1.7 (**modul native**, ditambahkan Tahap 6) |
 | applicationId | `com.afterhours.kelashariini` · versionCode `1` |
 | Android minimum | `minSdkVersion 24` → **Android 10 (API 29) didukung** |
 | Versi skema database | **`PRAGMA user_version = 2`** |
 | Profil APK | `preview` (internal distribution, `buildType: apk`) |
 
-> **APK lama tidak bisa dipakai untuk menguji versi ini.** `@react-native-community/datetimepicker`
-> adalah modul native yang baru ditambahkan, jadi ia hanya ikut terkompilasi pada build EAS **baru**.
-> Bila APK sebelumnya masih terpasang, **copot dulu** lalu pasang APK hasil build terbaru.
+> **APK lama tidak bisa dipakai untuk menguji versi ini.** Dua modul native baru
+> (`@react-native-community/datetimepicker`, dan `expo-notifications` sejak Tahap 6) hanya ikut
+> terkompilasi pada build EAS **baru**. Bila APK sebelumnya masih terpasang, **copot dulu** lalu
+> pasang APK hasil build terbaru. Setelah build yang memuat `expo-notifications` terpasang, perubahan
+> JavaScript berikutnya **tidak** memerlukan pemasangan APK ulang — cukup dev server (`--dev-client`).
 
 ---
 
@@ -214,7 +217,63 @@ Seed memakai jadwal **Senin (3 kelas)** dan **Kamis (1 kelas)**.
 Untuk melihat state tertentu tanpa mengubah seed: ubah sementara tanggal/jam emulator, atau buat
 jadwal sendiri lewat **Jadwal → Tambah jadwal** (cara yang disarankan). Kembalikan setelan setelah selesai.
 
-### I. Bila badge deadline terasa tidak cocok dengan jam di layar
+### I. Notifikasi pengingat kelas (Tahap 6)
+
+Prasyarat: APK **baru** yang memuat `expo-notifications` sudah terpasang.
+
+**I1. Izin & channel**
+
+- [ ] Buka **Jadwal** → muncul kartu status pengingat.
+- [ ] Status awal (izin belum ada) berbunyi **"Pengingat belum aktif"** + tombol **Aktifkan pengingat**.
+- [ ] Tidak ada dialog izin yang muncul sendiri saat aplikasi dibuka (baru muncul setelah tombol ditekan).
+- [ ] Tekan **Aktifkan pengingat**:
+  - Android 13+ / emulator API 33+: dialog izin notifikasi muncul **setelah** channel dibuat;
+    setelah diizinkan, status berubah menjadi **"Pengingat kelas aktif"** dengan jumlah jadwal.
+  - Android 10 (API 29): tidak ada dialog izin notifikasi (memang begitu perilakunya); status langsung aktif.
+
+**I2. Notifikasi benar-benar muncul (aplikasi tertutup)**
+
+- [ ] Tambah jadwal uji: mata kuliah **"Uji Pengingat"**, hari **hari ini**, jam mulai **3 menit dari sekarang**,
+      jam selesai +40 menit, ruang `U-1`, pengingat **2 menit**.
+- [ ] Tekan tombol Home / kunci layar (aplikasi **tidak** di foreground). Tunggu sampai jam mulai − 2 menit.
+- [ ] Notifikasi muncul dengan judul **"Uji Pengingat akan dimulai"** dan isi
+      *"Kelas dimulai pukul HH.MM di ruang U-1. Persiapkan dirimu!"*.
+- [ ] Ulangi dengan ruang dikosongkan: isi notifikasi menjadi *"Kelas dimulai pukul HH.MM. Persiapkan dirimu!"*.
+
+**I3. Edit & hapus membatalkan pengingat lama**
+
+- [ ] Ubah jadwal uji tadi: geser jam mulai 2 menit lebih lambat → simpan.
+- [ ] Notifikasi pada jam **lama** tidak muncul lagi; notifikasi pada jam **baru** yang muncul.
+- [ ] Ubah menit pengingat menjadi `10` → jam notifikasi ikut mundur 8 menit.
+- [ ] Ubah nama mata kuliah → judul notifikasi ikut berubah.
+- [ ] Ubah ruang → isi notifikasi ikut berubah.
+- [ ] Hapus jadwal uji → **tidak ada** notifikasi yang muncul sesudahnya.
+
+**I4. Tidak ada duplikat**
+
+- [ ] Tutup aplikasi (recent apps → swipe) dan buka lagi 3–5 kali.
+- [ ] Tambahkan jadwal kedua yang sama persis waktunya untuk mata kuliah lain → tiap jadwal hanya
+      memunculkan **satu** notifikasi (bukan dua atau tiga).
+- [ ] Di Pengaturan Android → Apps → Kelas Hari Ini → Notifications → channel **"Pengingat Kuliah"**
+      ada dan berisi jadwal pengingat (bukan kosong).
+
+**I5. Izin ditolak**
+
+- [ ] Copot izin notifikasi lewat Pengaturan sistem, lalu buka aplikasi.
+- [ ] Status di layar Jadwal kembali ke **"Pengingat belum aktif"** (atau **"Izin notifikasi diblokir"**
+      bila tidak bisa diminta lagi).
+- [ ] Jadwal tetap bisa ditambah/diubah/dihapus tanpa crash.
+- [ ] Bila status memblokir, tombol **Buka Pengaturan** membuka halaman pengaturan aplikasi.
+
+**I6. Bersih-bersih setelah uji**
+
+- [ ] Hapus semua jadwal uji ("Uji Pengingat") agar tidak meninggalkan pengingat mingguan.
+- [ ] Pastikan daftar Jadwal kembali ke data yang diinginkan.
+
+> Catatan ketepatan: pengingat memakai pengiriman **best-effort** (bukan alarm exact). Pada Android 12+
+> dengan Doze, notifikasi bisa bergeser beberapa menit. Itu batasan yang diterima (PRD FR-D6), bukan bug.
+
+### J. Bila badge deadline terasa tidak cocok dengan jam di layar
 
 Label tanggal (`Hari ini` / `Kemarin`) dan badge (`Sisa … jam` / `Terlambat … jam`) memakai `now`
 yang **sama**, jadi keduanya tidak dapat berbeda sumber. Bila angkanya terasa aneh, periksa jam &
@@ -268,6 +327,10 @@ Setelah melakukan CRUD, angka-angka itu berubah sesuai data yang Anda buat — i
 boleh terjadi: `course_id` bernilai `0`, atau baris jadwal dengan `course_id` yang tidak ada di
 `courses`.
 
+**Notifikasi tidak punya tabel sendiri.** Tidak ada perubahan skema pada Tahap 6: pengingat
+direkonsiliasi dari isi `schedules` dan dari metadata notifikasi yang tersimpan di sistem
+(`content.data.scheduleId` + `fingerprint`). Jadi `PRAGMA user_version` tetap **2**.
+
 ---
 
 ## 7. Bila build gagal di cloud
@@ -279,6 +342,8 @@ boleh terjadi: `course_id` bernilai `0`, atau baris jadwal dengan `course_id` ya
 | `android.versionCode is required` | `appVersionSource: local` | `versionCode` sudah `1` di `app.json` |
 | Build gagal saat mengompilasi modul native | dependency native belum ter-resolve | kirim log build; jangan ubah `targetSdk` sembarangan |
 | Aplikasi crash saat membuka form tanggal | APK lama (tanpa `datetimepicker`) | build ulang lewat EAS, copot APK lama |
+| Notifikasi tidak pernah muncul | APK lama (tanpa `expo-notifications`), atau izin belum diberikan | pasang APK baru, tekan **Aktifkan pengingat** |
+| Notifikasi muncul tetapi tidak berbunyi | channel Importance diubah pengguna jadi senyap | cek Pengaturan → Notifications → **Pengingat Kuliah** |
 | Antrean lama | kuota gratis | tunggu, atau ulangi di luar jam sibuk |
 
 ---

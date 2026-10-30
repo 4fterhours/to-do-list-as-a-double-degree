@@ -5,10 +5,10 @@ Semua status di bawah berasal dari pemeriksaan file dan perintah yang dijalankan
 
 | | |
 |---|---|
-| Terakhir diperbarui | **2026-10-29** (Tahap 5B — finalisasi CRUD & dokumentasi) |
-| Tahap saat ini | **CRUD + migrasi v2 selesai di kode, menunggu review** (posisi 4 roadmap `PRD.md`; disebut "Tahap 5" dalam percakapan). **Uji native Android belum dimulai.** |
-| Kode terakhir diverifikasi | `npx tsc --noEmit` 0 · `npx expo lint` 0 · `npx expo export --platform android` 0 |
-| Pengujian di perangkat | **Belum pernah dilakukan** (tidak ada build/APK) |
+| Terakhir diperbarui | **2026-10-30** (Tahap 6 — notifikasi lokal) |
+| Tahap saat ini | **Notifikasi lokal selesai di kode, menunggu review.** CRUD + migrasi v2 di-commit pada `394fd77`. |
+| Kode terakhir diverifikasi | `npx tsc --noEmit` 0 · `npx expo lint` 0 · `npx expo export --platform android` 0 · uji logika notifikasi 67/67 |
+| Pengujian di perangkat | CRUD: dilaporkan lulus oleh pengguna di emulator Android 10 (**tidak diverifikasi dari workspace ini**). Notifikasi: **BELUM DIUJI** — perlu dev build baru yang memuat `expo-notifications`. |
 
 Legenda status:
 
@@ -58,13 +58,19 @@ Artinya: CRUD **sudah ada di kode**, tetapi **belum terverifikasi pada APK/peran
 | Item | Nilai |
 |---|---|
 | Branch kerja | `arena/172d2bcb-to-do-list-as-a-double-degree` |
-| Commit terakhir | `5f8d788` — *feat: Hari Ini screen with SQLite layer, tokens, and EAS build config* |
-| Commit sebelumnya | `1b6d5ca` — *Initial commit* |
+| Commit terakhir | `394fd77` — *feat: CRUD jadwal & tugas, skema courses v2, dan dokumentasi proyek* (sudah di-push) |
+| Commit sebelumnya | `5f8d788`, `1b6d5ca` |
 | Remote | `https://github.com/4fterhours/to-do-list-as-a-double-degree.git` |
-| Working tree | **Kotor** — 16 file berubah + 18 entri baru (belum di-commit); termasuk 4 file dokumentasi |
+| Working tree | **Kotor** — perubahan Tahap 6 (notifikasi) belum di-commit: 7 file berubah + 0 file baru di `lib/`, `hooks/`, `components/` (lihat daftar di bawah) |
 | Runtime | Node 22.22.3 · npm 10.9.8 · Expo 58.0.19 · React Native 0.88.0 · TypeScript 6.0.3 · SQLite 3.51.3 (uji) |
 
-File yang belum di-commit (per pemeriksaan terakhir):
+File yang belum di-commit — **Tahap 6 (notifikasi lokal)**:
+
+- **Baru:** `lib/classReminders.ts`, `lib/notifications.ts`, `lib/notificationScheduler.ts`, `lib/notificationSync.ts`, `hooks/useReminderStatus.ts`, `components/ReminderStatusCard.tsx`
+- **Berubah:** `src/app/_layout.tsx` (sync gate), `components/SchedulesScreen.tsx` (kartu status), `components/ScheduleFormScreen.tsx` (sync setelah CRUD + teks hint), `package.json` + `package-lock.json` (`expo-notifications`), `PRD.md`, `IMPLEMENTATION_STATUS.md`, `ANDROID_TESTING.md`, `AGENTS.md`
+- **Tidak berubah:** skema (`db/schema.ts`), seed (`db/seed.ts`), design token (`lib/tokens.ts`), `app.json`, `eas.json`
+
+File yang belum di-commit (per pemeriksaan terakhir sebelum Tahap 6):
 
 - **Berubah (kode/konfigurasi, 12):** `components/NextClassCard.tsx`, `components/TodayScreen.tsx`, `db/database.ts`, `db/schedules.ts`, `db/schema.ts`, `db/tasks.ts`, `db/types.ts`, `hooks/useTodayData.ts`, `package.json`, `package-lock.json`, `src/app/_layout.tsx`, `src/app/index.tsx`
 - **Berubah (dokumentasi, 4):** `ANDROID_TESTING.md`, `DESIGN_BRIEF.md`, `AGENTS.md`, `README.md`
@@ -122,12 +128,14 @@ Seluruh perubahan di atas berasal dari pekerjaan tahap 1–4 ditambah **Tahap 5B
 
 ### 3.4 Notifikasi
 
-| ID PRD | Fitur | Status |
-|---|---|---|
-| FR-D1 | Menit pengingat dapat disimpan & diedit | `SELESAI` (tersimpan di DB; dapat diubah di form jadwal) |
-| FR-D2 | Notifikasi lokal terjadwal | `BELUM DIMULAI` — `expo-notifications` tidak ada di `package.json`, tidak ada kode notifikasi (grep bersih) |
-| FR-D3 | Tanpa push dari server | `SELESAI` (tidak ada kode jaringan sama sekali) |
-| FR-D4 | Tidak mengklaim notifikasi selesai sebelum diuji | Dipatuhi |
+| ID PRD | Fitur | Status kode | Status uji |
+|---|---|---|---|
+| FR-D1 | Menit pengingat dapat disimpan & diedit | `SELESAI` (tersimpan di DB; dapat diubah di form jadwal) | `SELESAI` (uji lapisan data Tahap 5) |
+| FR-D2 | Notifikasi lokal terjadwal | `SELESAI` — `lib/notificationSync.ts` + `lib/notificationScheduler.ts`; dipanggil setelah CRUD jadwal, saat app siap, dan saat app kembali aktif | `SELESAI` (logika, 67 assert di Node) · **`BELUM DIUJI` di perangkat** |
+| FR-D2a | Channel Android `class-reminders` (importance DEFAULT) | `SELESAI` — `ensureClassReminderChannel()` dipanggil sebelum izin & sebelum menjadwalkan | `BELUM DIUJI` (perangkat) |
+| FR-D2b | Izin platform (Android 10/13+, iOS) + tombol "Aktifkan pengingat" | `SELESAI` — `useReminderStatus` + `ReminderStatusCard` di layar Jadwal | `BELUM DIUJI` (perangkat) |
+| FR-D3 | Tanpa push dari server | `SELESAI` — tidak ada `getExpoPushTokenAsync`, FCM, atau kode jaringan (grep bersih) | `SELESAI` (inspeksi kode) |
+| FR-D4 | Tidak mengklaim notifikasi selesai sebelum diuji | Dipatuhi: status perangkat tetap `BELUM DIUJI` | — |
 
 ### 3.5 Platform
 
@@ -164,6 +172,12 @@ Seluruh perubahan di atas berasal dari pekerjaan tahap 1–4 ditambah **Tahap 5B
 | `db/types.ts` (58) | `Course`, `Schedule` (`courseId: number | null`), `Task` |
 | `hooks/useTodayData.ts` (123) | Data Hari Ini + jam berjalan + refetch saat fokus/aktif/pergantian hari |
 | `hooks/useFocusQuery.ts` (71) | Query generik yang dibaca ulang saat layar fokus |
+| `hooks/useReminderStatus.ts` (140) | Status pengingat untuk layar Jadwal (izin, jumlah aktif, aksi aktifasi) |
+| `lib/classReminders.ts` (327) | **Murni**: konversi weekday, slot pengingat (lintas tengah malam), teks, fingerprint, rekonsiliasi |
+| `lib/notifications.ts` (214) | Channel Android, izin, notification handler; no-op di web |
+| `lib/notificationScheduler.ts` (138) | Jadwalkan/baca/batalkan notifikasi (WEEKLY di Android, CALENDAR di iOS) |
+| `lib/notificationSync.ts` (143) | Rekonsiliasi SQLite ⇄ notifikasi; `syncClassReminders`, `enableClassReminders` |
+| `components/ReminderStatusCard.tsx` (159) | Kartu status pengingat di layar Jadwal + tombol aktifasi |
 | `lib/time.ts` (277) | Fungsi waktu murni: format, countdown, status kelas, tone deadline |
 | `lib/tokens.ts` (114) | Satu-satunya sumber nilai visual |
 | `lib/validation.ts` (182) | Validator form murni (jadwal & tugas) |
@@ -184,6 +198,9 @@ Semua dijalankan di **sandbox Linux**, **bukan** di perangkat Android.
 | 4 | Uji lapisan data (SQLite nyata) — dasar | harness Node + `node:sqlite` 3.51.3, TZ `Asia/Jakarta` | **66/66 lulus** | 2026-10-29; dijalankan sebelum perbaikan 5B, lalu **diulang** setelah perbaikan (tetap 66/66). Uji persistensi memakai file `persist.db` tetap, jadi file itu harus dihapus lebih dulu agar skenario "tambah jadwal baru" tidak dianggap duplikat — artefak harness, bukan perilaku aplikasi |
 | 5 | Uji lapisan data (SQLite nyata) — audit 5B | harness Node, TZ `Asia/Jakarta` | **33/33 lulus** | 2026-10-29, setelah perubahan `db/schedules.ts` & `db/types.ts` |
 | 6 | Grep kepatuhan token | hex / `fontWeight` / angka literal di `components/`, `src/` | bersih (0 temuan) | 2026-10-29 |
+| 7 | Uji logika notifikasi (Node, `--experimental-strip-types`) | harness `/tmp/t6/notifications.test.mjs` | **67/67 lulus** di 4 zona waktu (`Asia/Jakarta`, `America/New_York`, `Europe/Berlin`, `Pacific/Kiritimati`) | 2026-10-30, Tahap 6 |
+| 8 | Bundling Android setelah notifikasi | `npx expo export --platform android` | **exit 0** — `entry-261cbd1…hbc` (3,3 MB) | 2026-10-30 |
+| 9 | Bundling web setelah notifikasi | `npx expo export --platform web` | **exit 0** — `Exported: /home/user/preview/web` | 2026-10-30 |
 
 > Kedua harness berada di `/tmp` dan **tidak** disimpan di repo, sehingga tidak dapat dijalankan ulang
 > dari repository (lihat K7). Rinciannya ada di `ANDROID_TESTING.md` §1.
@@ -207,7 +224,22 @@ Cakupan uji #5 (audit Tahap 5B):
 - Tugas tetap terhubung ke identitas walaupun **semua** sesi jadwal mata kuliah itu dihapus; deadline dan status selesai utuh.
 - Perubahan CRUD langsung terbaca oleh query yang dipakai layar Hari Ini (`getSchedulesForDay`, `getPendingTasks`), termasuk efek selesai/buka kembali dan hapus.
 
-> Kedua harness memakai `node:sqlite`, **bukan** `expo-sqlite` di Android. Keduanya membuktikan logika SQL & migrasi, bukan perilaku runtime aplikasi.
+Cakupan uji #7 (logika notifikasi, tanpa perangkat):
+
+- Konversi weekday DB (0=Minggu … 6=Sabtu) ⇄ expo (1=Minggu … 7=Sabtu), termasuk penolakan nilai di luar rentang.
+- Slot pengingat: kelas 10:00 dengan 15/60/0 menit; kelas 00:05 dengan 5 menit.
+- Lintas tengah malam: Senin 07:00 − 600 = **Minggu 21:00**; Senin 00:30 − 45 = **Minggu 23:45**; Minggu 00:15 − 30 = **Sabtu 23:45**; Rabu 00:00 − 1 menit = **Selasa 23:59**.
+- Batas 24 jam: Senin 10:00 − 1440 = **Minggu 10:00**; Minggu − 1440 = Sabtu.
+- Sapuan 7 hari × 1441 nilai pengingat → semua slot (weekday 1–7, jam 0–23, menit 0–59) sah.
+- Isi notifikasi dengan ruang / tanpa ruang / ruang berisi spasi.
+- Fingerprint berubah bila jam, hari, pengingat, ruang, atau nama berubah; **tidak** berubah bila `endTime` berubah.
+- Sinkronisasi memakai scheduler palsu: tambah (1 notifikasi), ubah jam (identifier lama dibatalkan), ubah ruang/pengingat, hapus (0 notifikasi), 5× buka aplikasi (tetap 1, identifier sama), 3 duplikat → 1 tersisa, notifikasi yatim dibatalkan, metadata rusak dibatalkan.
+- Dua sesi mata kuliah yang sama → dua notifikasi; menghapus satu sesi tidak mengganggu yang lain.
+- Gerbang izin: `proceed` / `permission-denied` / `unsupported`.
+
+> Harness ini **tidak** memuat `expo-notifications` maupun `react-native`; ia membuktikan perhitungan dan logika rekonsiliasi, **bukan** perilaku notifikasi native.
+
+> Kedua harness lapisan data (Tahap 5) memakai `node:sqlite`, **bukan** `expo-sqlite` di Android. Keduanya membuktikan logika SQL & migrasi, bukan perilaku runtime aplikasi.
 
 ---
 
@@ -215,7 +247,8 @@ Cakupan uji #5 (audit Tahap 5B):
 
 | # | Belum diuji | Alasan / dampak |
 |---|---|---|
-| 1 | Build Android (EAS) | Sandbox tidak dapat menjangkau `api.expo.dev`; belum ada sesi Expo; `app.json` belum punya `extra.eas.projectId`. Build harus dijalankan dari mesin Anda (`ANDROID_TESTING.md`). |
+| 1 | Build Android (EAS) | Sandbox tidak dapat menjangkau `api.expo.dev`; belum ada sesi Expo; `app.json` di repo ini belum punya `extra.eas.projectId`. Build harus dijalankan dari mesin Anda (`ANDROID_TESTING.md`). |
+| 0a | **Dev build baru dengan `expo-notifications`** | Dependency native baru ditambahkan pada Tahap 6. Dev client yang sudah terpasang di emulator **tidak** memuat modul ini, sehingga notifikasi tidak bisa diuji sebelum APK baru dipasang. |
 | 2 | Aplikasi berjalan di Android 10 | Bergantung pada #1. Semua kriteria `AC-A*`, `AC-B1..B9` (UI), `AC-C1..C7` (UI) berstatus **BELUM DIUJI**. |
 | 3 | Date/time picker native | `@react-native-community/datetimepicker` adalah modul native; perlu build baru dulu. Perilaku di perangkat belum pernah dilihat. |
 | 4 | Light/dark mode di perangkat | Belum pernah dilihat di HP. |
@@ -224,7 +257,8 @@ Cakupan uji #5 (audit Tahap 5B):
 | 7 | Uji migrasi pada database aplikasi yang sudah ada di HP | Uji hanya pada database sintetis di sandbox. |
 | 8 | Notifikasi lokal | Belum ada kode. |
 | 9 | Uji otomatis yang tersimpan di repo | **Tidak ada test suite** di repository. |
-| 10 | Skenario uji APK (CRUD, duplikat, picker, relasi mata kuliah, persistensi) | Daftar lengkap sudah disiapkan di `ANDROID_TESTING.md` §5, tetapi **belum dijalankan** — menunggu APK build EAS terbaru. |
+| 10 | Skenario uji APK (CRUD, duplikat, picker, relasi mata kuliah, persistensi) | Daftar lengkap sudah disiapkan di `ANDROID_TESTING.md` §5. Pengguna melaporkan CRUD lulus di emulator Android 10; hasil itu **tidak dapat diverifikasi dari workspace ini**. |
+| 11 | Notifikasi: channel, izin, kemunculan saat app di latar belakang, pembatalan setelah edit/hapus, tidak ada duplikat setelah buka-tutup | Skenario ada di `ANDROID_TESTING.md` §5J. **Belum dijalankan** — memerlukan dev build baru. |
 
 ---
 
@@ -251,6 +285,9 @@ Cakupan uji #5 (audit Tahap 5B):
 | K6 | Tidak ada pengecekan izin/batas jumlah data | Wajar untuk pemakaian pribadi | **Diterima** |
 | K7 | Tidak ada test suite di repo (harness hanya di `/tmp`) | Regresi hanya terdeteksi manual dan hasil uji lama tidak dapat direproduksi dari repo | **Terbuka** — pertimbangkan test runner ringan pada tahap 7 |
 | K8 | Perilaku `@react-native-community/datetimepicker` di iOS belum pernah dijalankan (`display="default"` + tutup otomatis setelah memilih) | Bisa terasa kurang pas di iOS (platform berikutnya) | **Terbuka** — tinjau saat iOS menjadi target |
+| K9 | Notifikasi memakai `delivery: 'bestEffort'` (bukan alarm exact) | Di Android 12+ Doze dapat menunda notifikasi beberapa menit; jadwal kuliah tetap tampil benar di aplikasi | **Diterima** — tidak memakai `USE_EXACT_ALARM` karena aplikasi tidak butuh ketepatan detik |
+| K10 | Tidak ada notifikasi deadline tugas | Data tugas belum punya kolom menit pengingat dan PRD belum menetapkan aturan waktunya | **Terbuka** — kandidat tahap berikutnya bila PRD diperluas |
+| K11 | `reminder_minutes = 0` berarti notifikasi tepat saat kelas dimulai | Bisa terasa terlambat bagi sebagian pengguna (notifikasi dan kelas mulai bersamaan) | **Diputuskan** — konsisten dengan CHECK 0–1440 dan dijelaskan di form + PRD |
 
 ### 7.3 Batasan lingkungan sandbox (agar tidak diulang)
 
