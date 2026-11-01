@@ -13,6 +13,10 @@ import { PrimaryButton, SecondaryButton } from './Buttons';
  * satu aksi jelas untuk mengaktifkannya. Tidak ada dekorasi tambahan; warna
  * hanya penanda dan setiap status tetap punya teks (brief 07/09).
  *
+ * Setiap keadaan punya pesan sendiri karena tindakan penggunanya berbeda:
+ * web tidak didukung, build tanpa modul notifikasi, izin belum ada, izin
+ * diblokir, dan penjadwalan gagal (yang boleh dicoba ulang).
+ *
  * Izin TIDAK pernah diminta otomatis. Dialog izin baru muncul setelah pengguna
  * menekan "Aktifkan pengingat".
  */
@@ -64,11 +68,22 @@ function present(status: ReminderStatus): Presentation {
         title: 'Pengingat hanya tersedia di Android dan iOS',
         caption: 'Di web, jadwal bisa dilihat dan diubah, tetapi notifikasi tidak dijadwalkan.',
       };
+    case 'unavailable':
+      // Platform didukung, tetapi build yang terpasang tidak memuat modul
+      // notifikasi. Ini BUKAN masalah izin: jangan menyuruh pengguna membuka
+      // Pengaturan, dan jangan menampilkan tombol coba lagi (tidak akan berubah
+      // tanpa build baru).
+      return {
+        icon: 'notifications-off-outline',
+        title: 'Pengingat belum ada di versi aplikasi ini',
+        caption:
+          'Versi aplikasi yang terpasang belum memuat fitur notifikasi, jadi pengingat kelas tidak bisa dijadwalkan. Jadwal dan tugas tetap bisa dipakai seperti biasa. Pengingat akan tersedia setelah versi terbaru aplikasi dipasang.',
+      };
     case 'error':
       return {
         icon: 'alert-circle-outline',
-        title: 'Pengingat belum dapat disiapkan',
-        caption: status.message,
+        title: 'Pengingat gagal dijadwalkan',
+        caption: `Jadwal tetap tersimpan, tetapi pengingat belum bisa dijadwalkan. ${status.message} Coba lagi; bila terus gagal, periksa izin notifikasi di Pengaturan aplikasi.`,
         action: 'retry',
       };
   }

@@ -39,13 +39,28 @@ type NotificationsModule = typeof import('expo-notifications');
 let cached: NotificationsModule | null = null;
 
 /**
+ * Penanda bahwa `require('expo-notifications')` pernah gagal. Disimpan agar
+ * percobaan berikutnya tidak memicu `console.warn` berulang setiap layar
+ * dibuka. Kegagalan ini normal bila build yang terpasang belum memuat modul
+ * native tersebut (mis. development build lama).
+ */
+let moduleLoadFailed = false;
+
+/**
  * Memuat `expo-notifications` hanya ketika benar-benar dibutuhkan.
  *
  * Pemanggilan lazy dipakai agar bundel web tidak menjalankan modul native dan
  * agar kegagalan satu platform tidak menjatuhkan aplikasi saat modul diimpor.
+ *
+ * `null` di sini berarti dua hal yang berbeda dan HARUS dibedakan pemanggil:
+ * platform tidak mendukung notifikasi (web), atau modul native tidak ada di
+ * build yang terpasang. Gunakan `getNotificationModuleState()` untuk itu.
  */
 export function getNotifications(): NotificationsModule | null {
   if (!isNotificationPlatformSupported()) {
+    return null;
+  }
+  if (moduleLoadFailed) {
     return null;
   }
   if (cached === null) {
@@ -53,11 +68,28 @@ export function getNotifications(): NotificationsModule | null {
       // eslint-disable-next-line @typescript-eslint/no-require-imports
       cached = require('expo-notifications') as NotificationsModule;
     } catch (error) {
-      console.warn('[notifikasi] Modul expo-notifications tidak tersedia:', error);
+      moduleLoadFailed = true;
+      console.warn('[notifikasi] Modul expo-notifications tidak tersedia di build ini:', error);
       return null;
     }
   }
   return cached;
+}
+
+/**
+ * Tiga keadaan yang berbeda dan tidak boleh disamakan:
+ * - `unsupported`  → platform ini memang tidak punya notifikasi lokal (web);
+ * - `unavailable`  → platform didukung, tetapi build yang terpasang tidak
+ *                    memuat modul native `expo-notifications`;
+ * - `ready`        → modul native berhasil dimuat.
+ */
+export type NotificationModuleState = 'unsupported' | 'unavailable' | 'ready';
+
+export function getNotificationModuleState(): NotificationModuleState {
+  if (!isNotificationPlatformSupported()) {
+    return 'unsupported';
+  }
+  return getNotifications() ? 'ready' : 'unavailable';
 }
 
 /* ------------------------------------------------------------------------- */
@@ -73,6 +105,16 @@ export function getNotifications(): NotificationsModule | null {
  *
  * Importance DEFAULT sesuai permintaan: cukup menampilkan notifikasi dengan
  * bunyi bawaan, tanpa menembus mode senyap atau Do Not Disturb.
+ *
+ * **Nilai balik.** `true` = channel ada/terbarui. `false` = tidak berlaku
+ * (bukan Android, modul tidak termuat) ATAU pembuatan gagal; kegagalan sudah
+ * dicatat sebagai peringatan. Pemanggil tidak boleh memperlakukan `false`
+ * sebagai "pengingat tidak akan tampil": expo-notifications menyusun
+ * notifikasi lewat `BaseNotificationBuilder`, dan bila channel yang diminta
+ * tidak ada, builder itu memakai channel cadangan
+ * `expo_notifications_fallback_notification_channel` (dibuat saat itu juga,
+ * IMPORTANCE_HIGH). Lihat audit Fase 2A di
+ * `tests/lib/notificationSync-channel.test.mjs`.
  */
 export async function ensureClassReminderChannel(): Promise<boolean> {
   if (Platform.OS !== 'android') {
@@ -103,9 +145,24 @@ export async function ensureClassReminderChannel(): Promise<boolean> {
 /* Izin                                                                      */
 /* ------------------------------------------------------------------------- */
 
+/**
+ * Pesan tunggal untuk "izin gagal dibaca". Dipakai lapisan sinkronisasi
+ * (`lib/notificationSync.ts`) dan hook status UI (`hooks/useReminderStatus.ts`)
+ * supaya kedua jalur menampilkan kalimat yang sama, bukan dua salinan yang bisa
+ * menyimpang.
+ */
+export const PERMISSION_UNREADABLE_MESSAGE = 'Status izin notifikasi tidak dapat dibaca.';
+
 export type ReminderPermissionState = {
   /** Platform ini punya notifikasi lokal sama sekali. */
   supported: boolean;
+  /**
+   * Modul native `expo-notifications` benar-benar termuat di build ini.
+   * `false` berarti build yang terpasang tidak memuat fitur notifikasi —
+   * berbeda dari `supported: false` yang berarti platformnya memang tidak
+   * mendukung (web).
+   */
+  moduleAvailable: boolean;
   /** Izin diberikan dan notifikasi bisa muncul. */
   granted: boolean;
   /** Izin masih bisa diminta lewat dialog (false = harus lewat Pengaturan). */
@@ -114,12 +171,32 @@ export type ReminderPermissionState = {
   status: string;
 };
 
+/** Platform tanpa notifikasi lokal sama sekali (web). */
 const UNSUPPORTED: ReminderPermissionState = {
   supported: false,
+  moduleAvailable: false,
   granted: false,
   canAskAgain: false,
   status: 'unsupported',
 };
+
+/**
+ * Platform didukung, tetapi modul native tidak ada di build. Bukan penolakan
+ * izin: pengguna tidak bisa memperbaikinya dari dialog izin, dan pengingat
+ * tidak boleh dilaporkan aktif.
+ */
+const MODULE_UNAVAILABLE: ReminderPermissionState = {
+  supported: true,
+  moduleAvailable: false,
+  granted: false,
+  canAskAgain: false,
+  status: 'module-unavailable',
+};
+
+/** Menerjemahkan "modul tidak termuat" ke keadaan yang benar. */
+function unavailableState(): ReminderPermissionState {
+  return isNotificationPlatformSupported() ? MODULE_UNAVAILABLE : UNSUPPORTED;
+}
 
 /**
  * Membaca status izin tanpa memunculkan dialog.
@@ -131,20 +208,29 @@ const UNSUPPORTED: ReminderPermissionState = {
 export async function getReminderPermissionState(): Promise<ReminderPermissionState> {
   const Notifications = getNotifications();
   if (!Notifications) {
-    return UNSUPPORTED;
+    return unavailableState();
   }
 
   try {
     const permissions = await Notifications.getPermissionsAsync();
     return {
       supported: true,
+      moduleAvailable: true,
       granted: permissions.granted,
       canAskAgain: permissions.canAskAgain,
       status: permissions.status,
     };
   } catch (error) {
+    // Modul ada tetapi pembacaan izin gagal: tetap "tersedia", izin tidak
+    // diketahui, sehingga pemanggil tidak boleh menganggap pengingat aktif.
     console.warn('[notifikasi] Gagal membaca izin notifikasi:', error);
-    return { supported: true, granted: false, canAskAgain: false, status: 'error' };
+    return {
+      supported: true,
+      moduleAvailable: true,
+      granted: false,
+      canAskAgain: false,
+      status: 'error',
+    };
   }
 }
 
@@ -156,7 +242,7 @@ export async function getReminderPermissionState(): Promise<ReminderPermissionSt
 export async function requestReminderPermission(): Promise<ReminderPermissionState> {
   const Notifications = getNotifications();
   if (!Notifications) {
-    return UNSUPPORTED;
+    return unavailableState();
   }
 
   await ensureClassReminderChannel();
@@ -171,13 +257,20 @@ export async function requestReminderPermission(): Promise<ReminderPermissionSta
     });
     return {
       supported: true,
+      moduleAvailable: true,
       granted: permissions.granted,
       canAskAgain: permissions.canAskAgain,
       status: permissions.status,
     };
   } catch (error) {
     console.warn('[notifikasi] Gagal meminta izin notifikasi:', error);
-    return { supported: true, granted: false, canAskAgain: false, status: 'error' };
+    return {
+      supported: true,
+      moduleAvailable: true,
+      granted: false,
+      canAskAgain: false,
+      status: 'error',
+    };
   }
 }
 

@@ -8,7 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { DatabaseErrorBoundary } from '../../components/DatabaseErrorBoundary';
 import { DATABASE_NAME, initializeDatabase } from '../../db/database';
 import { configureNotificationHandler } from '../../lib/notifications';
-import { syncClassReminders } from '../../lib/notificationSync';
+import { requestReminderSync } from '../../lib/notificationSync';
 import { useTheme } from '../../theme/useTheme';
 
 /**
@@ -60,17 +60,21 @@ export default function RootLayout() {
  * menghasilkan notifikasi ganda. Tidak ada dialog izin di sini: bila izin
  * belum ada, sinkronisasi hanya melapor "permission-denied" dan UI yang
  * menawarkan tombol aktifasi.
+ *
+ * `requestReminderSync` dipakai (bukan `void syncClassReminders(...)`) karena
+ * helper itu menangani kegagalan sendiri: tidak ada unhandled promise rejection,
+ * dan hasilnya tetap dilaporkan ke layar Jadwal lewat pembacaan status.
  */
 function ReminderSyncGate() {
   const db = useSQLiteContext();
 
   useEffect(() => {
     configureNotificationHandler();
-    void syncClassReminders(db);
+    requestReminderSync(db);
 
     const subscription = AppState.addEventListener('change', (nextState) => {
       if (nextState === 'active') {
-        void syncClassReminders(db);
+        requestReminderSync(db);
       }
     });
 

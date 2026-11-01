@@ -2,6 +2,7 @@
   "expo": {
     "name": "Kelas Hari Ini",
     "slug": "kelas-hari-ini",
+    "owner": "rizqie",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -35,6 +36,16 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "0ef925c4-7c2f-4bf8-8c36-932810e2c6a0"
+      },
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      }
     }
   }
 }

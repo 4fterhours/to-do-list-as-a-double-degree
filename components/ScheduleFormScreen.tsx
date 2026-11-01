@@ -13,7 +13,7 @@ import {
 } from '../db/schedules';
 import type { Course } from '../db/types';
 import { useFocusQuery } from '../hooks/useFocusQuery';
-import { syncClassReminders } from '../lib/notificationSync';
+import { requestReminderSync } from '../lib/notificationSync';
 import { breakpoint, fontFamily, spacing, typography } from '../lib/tokens';
 import { clockToMinutes } from '../lib/time';
 import {
@@ -298,8 +298,10 @@ function ScheduleForm({
       }
 
       // Pengingat mengikuti data terbaru; kegagalan notifikasi tidak boleh
-      // membatalkan penyimpanan jadwal yang sudah berhasil.
-      void syncClassReminders(db);
+      // membatalkan penyimpanan jadwal yang sudah berhasil. Helper ini tidak
+      // pernah melempar, dan layar Jadwal menampilkan status sebenarnya saat
+      // kembali fokus (termasuk tombol coba lagi bila penjadwalan gagal).
+      requestReminderSync(db);
 
       router.back();
     } catch (error) {
@@ -319,7 +321,7 @@ function ScheduleForm({
     setSubmitError(null);
     try {
       await deleteSchedule(db, scheduleId);
-      void syncClassReminders(db);
+      requestReminderSync(db);
       setConfirmVisible(false);
       router.back();
     } catch (error) {

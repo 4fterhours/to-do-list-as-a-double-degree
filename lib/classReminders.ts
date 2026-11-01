@@ -184,20 +184,51 @@ export function buildReminderFingerprint(schedule: ReminderSource): string {
 /* Gerbang izin                                                               */
 /* ------------------------------------------------------------------------- */
 
-export type SyncGate = 'proceed' | 'unsupported' | 'permission-denied';
+export type SyncGate =
+  | 'proceed'
+  /** Platform tanpa notifikasi lokal (web). */
+  | 'unsupported'
+  /** Platform didukung, tetapi build ini tidak memuat modul native. */
+  | 'module-unavailable'
+  /** Modul ada, izin benar-benar belum diberikan. */
+  | 'permission-denied'
+  /**
+   * Modul ada, tetapi status izin GAGAL DIBACA. Bukan penolakan izin: pengguna
+   * tidak pernah ditanya, dan kegagalan ini layak dicoba ulang.
+   */
+  | 'error';
 
 /**
  * Menentukan apakah sinkronisasi boleh berjalan, dari status izin/dukungan
  * platform. Dipisah sebagai fungsi murni supaya aturan "izin ditolak berarti
  * tidak ada penjadwalan, tetapi aplikasi tetap jalan" dapat diuji tanpa
  * perangkat.
+ *
+ * Urutan pemeriksaan penting: platform → modul native → kegagalan baca izin →
+ * izin. Tanpa modul, `permission.granted` selalu `false`, sehingga memeriksa
+ * izin lebih dulu akan salah melaporkan "izin ditolak" padahal masalahnya build
+ * tidak memuat modul. Alasan yang sama berlaku untuk `status === 'error'`:
+ * kegagalan membaca izin juga menghasilkan `granted: false`, padahal itu bukan
+ * penolakan — pengguna tidak pernah melihat dialog izinnya (F2-1).
+ *
+ * `moduleAvailable` dan `status` opsional agar pemanggil lama (dan uji lama)
+ * tetap sah; `undefined` berarti "tidak diketahui" dan tidak mengubah hasil.
  */
 export function syncGateFor(permission: {
   supported: boolean;
+  moduleAvailable?: boolean;
   granted: boolean;
+  /** Status mentah izin; `'error'` berarti pembacaan izin gagal. */
+  status?: string;
 }): SyncGate {
   if (!permission.supported) {
     return 'unsupported';
+  }
+  if (permission.moduleAvailable === false) {
+    return 'module-unavailable';
+  }
+  if (permission.status === 'error') {
+    return 'error';
   }
   if (!permission.granted) {
     return 'permission-denied';

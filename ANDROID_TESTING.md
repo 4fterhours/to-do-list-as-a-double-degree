@@ -30,7 +30,7 @@ Dua lapisan pengujian ini berbeda dan **tidak saling menggantikan**:
 
 | Lapisan | Dijalankan di | Membuktikan | Tidak membuktikan |
 |---|---|---|---|
-| **Logika database (Node)** | sandbox/komputer, `node:sqlite` | migrasi v1→v2 mempertahankan data, CRUD SQL, seed idempoten, validasi form murni, urutan deadline | tampilan, gesture, picker native, safe area, performa di HP |
+| **Logika & data (Node)** — `npm test` (191 test, 41 suite) | sandbox/komputer, `node:sqlite` | migrasi v1→v2 mempertahankan data, CRUD SQL, seed idempoten, validasi form murni, urutan deadline, urutan hari, slot pengingat, klasifikasi izin/modul/channel notifikasi, sinkronisasi & rekonsiliasi pengingat, perilaku saat channel gagal dibuat | tampilan, gesture, picker native, safe area, performa di HP, kemunculan notifikasi sungguhan, perilaku setelah reboot, pergeseran Doze |
 | **Runtime Android (APK)** | emulator Android 10 atau HP Android 10 | semua hal di atas **plus** UI, dialog native, persistensi setelah app ditutup, dark mode, font besar | — |
 
 Uji Node **bukan** pengganti uji perangkat. Sampai APK terbaru dipasang dan checklist di §5
@@ -52,7 +52,11 @@ Build cloud **belum bisa dijalankan dari sandbox Arena**. Dua blocker yang benar
 Karena nomor 2, **token Expo saja tidak cukup** di sandbox ini. Build harus dijalankan dari
 komputer Anda (atau CI) — lihat langkah di bawah.
 
-`app.json` saat ini **belum** memiliki `extra.eas.projectId`; `eas init` akan membuatnya.
+`app.json` saat ini **belum** memiliki `extra.eas.projectId`. Audit Fase 3 menemukan bahwa nilai itu **tidak
+tersimpan di mana pun di repository** (tidak ada di `app.json`, `eas.json`, riwayat Git, atau `.expo/`), padahal
+build sebelumnya ada di akun Expo Anda. Karena itu **jangan** `eas init` tanpa ID: ikuti §3a di bawah agar
+proyek yang sudah ada ditautkan, bukan dibuat ulang. Rincian audit ada di
+[`IMPLEMENTATION_STATUS.md`](./IMPLEMENTATION_STATUS.md) §9.
 
 ---
 
@@ -60,7 +64,7 @@ komputer Anda (atau CI) — lihat langkah di bawah.
 
 | Kebutuhan | Catatan |
 |---|---|
-| Node.js 22 LTS | https://nodejs.org |
+| Node.js 22.18+ (dibutuhkan `npm test`) | https://nodejs.org |
 | Git | untuk clone repo |
 | Akun Expo (gratis) | https://expo.dev/signup — antrean build gratis tersedia |
 | Internet | build berjalan di cloud |
@@ -76,12 +80,43 @@ npm ci
 # 1) Login (membuka browser). Sesi disimpan di ~/.expo, bukan di repo.
 npx eas-cli@latest login
 
-# 2) Hubungkan proyek ke akun Anda (membuat extra.eas.projectId di app.json).
-npx eas-cli@latest init
+# 2) Tautkan proyek yang SUDAH ADA — lihat §3a. JANGAN jalankan `init` tanpa ID.
+npx eas-cli@latest init --id <project-id-yang-terverifikasi>
 
 # 3) Build APK untuk Android 10
 npx eas-cli@latest build --platform android --profile preview
 ```
+
+### 3a. Menautkan proyek Expo yang sudah ada (tanpa membuat proyek baru)
+
+Build sebelumnya sudah ada di akun Expo Anda, tetapi `extra.eas.projectId` tidak tersimpan di repository ini.
+Langkah yang benar:
+
+1. Buka <https://expo.dev> → pilih proyek **Kelas Hari Ini** (slug `kelas-hari-ini`).
+   Bila tidak yakin, buka salah satu URL build lama:
+   `https://expo.dev/accounts/<owner>/projects/<slug>/builds/<id>`.
+2. Catat **owner**, **slug**, dan **Project ID** (UUID) dari *Project settings*.
+3. Pastikan slug memang `kelas-hari-ini` (sama dengan `app.json`). Bila berbeda, **berhenti** — jangan ubah
+   `slug` agar cocok, karena itu akan membuat proyek tampak berbeda di EAS.
+4. Jalankan di folder repo:
+
+   ```bash
+   npx eas-cli@latest init --id <project-id>
+   ```
+
+5. Periksa hasilnya:
+
+   ```bash
+   git diff app.json
+   ```
+
+   Yang boleh berubah **hanya** penambahan `"extra": { "eas": { "projectId": "…" } }`.
+   Bila `slug`, `android.package`, atau `versionCode` ikut berubah, kembalikan dengan `git checkout -- app.json`
+   lalu laporkan.
+
+> **Jangan** menjalankan `eas init` tanpa `--id` bila proyeknya sudah ada: perintah itu bisa membuat proyek
+> baru di akun Anda, sehingga build lama dan baru tidak lagi satu proyek.
+> **Jangan** menulis UUID hasil tebakan ke `app.json`.
 
 Untuk CI / non-interaktif, gunakan token alih-alih login dan **jangan** menyimpannya di repo:
 
@@ -290,6 +325,91 @@ Deadline contoh dihitung **saat database pertama kali dibuat**, bukan setiap apl
 tanggal relatif ("Hari ini", "Kemarin") hanya muncul selama perangkat masih di hari yang sama dengan
 hari seed; setelah itu tanggal tampil absolut (mis. `30 Oktober, 23.59`) — itu perilaku benar.
 
+### K. Notifikasi setelah perangkat dinyalakan ulang & perilaku Doze
+
+Prasyarat: pengingat sudah aktif (§5I) dan ada jadwal uji dengan pengingat beberapa menit ke depan.
+
+**K1. Nyala ulang perangkat**
+
+- [ ] Jadwalkan pengingat ~10 menit ke depan, lalu **matikan** perangkat sepenuhnya (bukan hanya layar mati).
+- [ ] Nyalakan kembali dan tunggu sampai waktunya — notifikasi **tetap muncul**.
+- [ ] Buka aplikasi, buka layar **Jadwal** → status masih **"Pengingat kelas aktif"** dengan jumlah jadwal
+      yang sama seperti sebelum reboot (tidak berubah, tidak bertambah).
+- [ ] Tutup-buka aplikasi 3× lagi → jumlah notifikasi di pengaturan sistem **tidak** bertambah.
+
+> Catatan jujur: jadwal notifikasi Android disimpan di `AlarmManager` dan dipulihkan sistem setelah reboot.
+> Namun bila pengguna memaksa berhenti aplikasi (*Force stop*), Android membatalkan alarm-nya sampai
+> aplikasi dibuka lagi. Itu perilaku sistem, **bukan** bug aplikasi — catat apa adanya.
+
+**K2. Doze / keterlambatan (Android 12+ / API 31+)**
+
+Pengingat memakai pengiriman **best-effort**, bukan alarm exact (PRD FR-D6, risiko K9). Tujuannya: mengukur
+besar pergeseran, bukan mencari nol.
+
+- [ ] Aktifkan Doze: `adb shell dumpsys deviceidle force-idle` (atau tinggalkan HP terkunci tanpa di-charge
+      selama ~30 menit pada HP fisik).
+- [ ] Jadwalkan pengingat 2 menit ke depan, kunci layar, biarkan perangkat idle.
+- [ ] Catat **selisih** antara jam yang diharapkan dan jam notifikasi benar-benar muncul
+      (boleh dari riwayat notifikasi / status bar).
+- [ ] Keluar dari Doze: `adb shell dumpsys deviceidle unforce`.
+- [ ] Tulis hasilnya apa adanya, mis. *"muncul 4 menit 12 detik lebih lambat"*.
+
+**K3. Batas yang diterima**
+
+- [ ] Notifikasi yang **tidak** muncul sama sekali saat perangkat idle **panjang** (berjam-jam) adalah
+      keluhan yang harus dilaporkan, bukan langsung dianggap wajar.
+- [ ] Pergeseran beberapa menit adalah **batasan yang diterima**; jangan mengubah `delivery` menjadi alarm
+      exact tanpa persetujuan (itu akan menambah izin & kebijakan Play Store).
+
+### L. Performa
+
+Diuji pada perangkat/emulator yang sama dengan build yang sama. Tidak ada angka target resmi di PRD selain
+"tampil tanpa jeda berarti"; catat pengamatan, bukan tebakan.
+
+- [ ] Buat data lebih banyak lewat UI: **±30 jadwal** dan **±60 tugas** (boleh berulang, catat jumlah akhirnya).
+- [ ] Buka aplikasi dari keadaan tertutup → layar **Hari Ini** tampil dengan data dalam waktu yang terasa wajar;
+      catat bila ada layar kosong yang menggantung.
+- [ ] Gulir daftar tugas panjang ke bawah dan ke atas → tidak tersendat berarti.
+- [ ] Buka daftar **Jadwal** dengan 30 baris → gulir cepat, tidak tersendat.
+- [ ] Buka form **Ubah jadwal** → isian langsung terisi nilai lama (tidak menunggu lama).
+- [ ] Biarkan aplikasi terbuka 10 menit di layar Hari Ini → hitung mundur tetap berjalan tiap ±30 detik,
+      baterai tidak turun tidak wajar, tidak ada lonjakan panas.
+- [ ] Kembali dari layar Jadwal ke Hari Ini → data terbaca ulang tanpa kedipan berlebihan.
+- [ ] Catat perangkat, versi Android, dan jumlah data di laporan.
+
+### M. Jalur kegagalan yang belum terverifikasi di perangkat
+
+Dua jalur di bawah sudah diuji di Node dengan modul native dipalsukan, tetapi **belum pernah** dibuktikan
+pada build nyata. Keduanya masih tercatat sebagai risiko terbuka (F2A-1/F2A-2 dan D6).
+
+**M1. Kegagalan pembuatan notification channel (F2A-1)**
+
+Sulit dipicu dari UI. Cara yang tersedia, pilih salah satu dan catat mana yang dipakai:
+
+- [ ] **Lewat pengaturan sistem:** buka Pengaturan → Apps → Kelas Hari Ini → Notifications →
+      **hapus** channel "Pengingat Kuliah". Lalu ubah satu jadwal (agar sinkronisasi berjalan).
+      Periksa: channel **"Pengingat Kuliah"** muncul kembali, dan pengingat berikutnya tetap muncul.
+- [ ] **Lewat log build:** cari `[notifikasi] Gagal membuat channel pengingat` di `adb logcat -s ReactNativeJS:V`
+      (`console.warn` dari `ensureClassReminderChannel`). Bila **tidak** pernah muncul, berarti jalur ini
+      memang tidak terpicu — tulis apa adanya, jangan disimpulkan lulus.
+- [ ] Bila jalur ini berhasil dipicu, catat: apakah pengingat **tetap muncul**, dan di channel mana
+      (Pengaturan → Notifications → apakah ada channel
+      *"expo_notifications_fallback_notification_channel"* / nama cadangan Expo).
+- [ ] Catat juga **prioritas** channel cadangan tersebut. Bila notifikasi muncul sebagai *heads-up*
+      (menonjol) padahal seharusnya tidak, itu temuan F2A-2 — laporkan, jangan diabaikan.
+
+> Bila pengingat sama sekali **tidak** muncul saat channel gagal dibuat, hentikan pengujian dan laporkan:
+> keputusan "sinkronisasi tetap `synced`" di `lib/notificationSync.ts` harus diubah menjadi `status: 'error'`.
+
+**M2. Build tanpa modul notifikasi (D6)**
+
+- [ ] Cara termudah: pasang APK **lama** yang dibuat sebelum Tahap 6 (sebelum `expo-notifications` ditambahkan)
+      bila masih tersimpan. Bila tidak ada, lewati butir ini dan tulis alasannya.
+- [ ] Buka layar **Jadwal** → kartu pengingat harus berbunyi **"tidak tersedia di build ini"**
+      (keadaan `unavailable`), **bukan** "izin ditolak" dan **bukan** "platform tidak didukung".
+- [ ] Tidak ada dialog izin yang muncul dan tidak ada crash.
+- [ ] Tambah / ubah / hapus jadwal tetap berhasil sepenuhnya.
+
 ---
 
 ## 6. Pemeriksaan isi database di perangkat (opsional)
@@ -338,11 +458,12 @@ direkonsiliasi dari isi `schedules` dan dari metadata notifikasi yang tersimpan 
 | Gejala | Penyebab umum | Tindakan |
 |---|---|---|
 | `An Expo user account is required` | belum login | `npx eas-cli@latest login` |
-| `projectId` tidak ditemukan | `eas init` belum dijalankan | jalankan `eas init` (jangan tulis UUID manual) |
+| `projectId` tidak ditemukan | Proyek belum ditautkan di repo ini | tautkan proyek yang **sudah ada** dengan `npx eas-cli@latest init --id <project-id>` (§3a). Jangan tulis UUID manual dan jangan buat proyek baru |
 | `android.versionCode is required` | `appVersionSource: local` | `versionCode` sudah `1` di `app.json` |
 | Build gagal saat mengompilasi modul native | dependency native belum ter-resolve | kirim log build; jangan ubah `targetSdk` sembarangan |
 | Aplikasi crash saat membuka form tanggal | APK lama (tanpa `datetimepicker`) | build ulang lewat EAS, copot APK lama |
-| Notifikasi tidak pernah muncul | APK lama (tanpa `expo-notifications`), atau izin belum diberikan | pasang APK baru, tekan **Aktifkan pengingat** |
+| Notifikasi tidak pernah muncul | APK lama (tanpa `expo-notifications`), atau izin belum diberikan | pasang APK baru, tekan **Aktifkan pengingat**, lalu jalankan §5I |
+| Notifikasi tetap tidak muncul setelah izin diberikan dan channel ada | kemungkinan channel gagal dibuat (F2A-1) sehingga jatuh ke channel cadangan, atau alarm dibatalkan karena *Force stop* | jalankan §5M, periksa `adb logcat -s ReactNativeJS:V` untuk `Gagal membuat channel pengingat` |
 | Notifikasi muncul tetapi tidak berbunyi | channel Importance diubah pengguna jadi senyap | cek Pengaturan → Notifications → **Pengingat Kuliah** |
 | Antrean lama | kuota gratis | tunggu, atau ulangi di luar jam sibuk |
 
@@ -350,6 +471,14 @@ direkonsiliasi dari isi `schedules` dan dari metadata notifikasi yang tersimpan 
 
 ## 8. Setelah pengujian
 
-Catat hasil di tiket/PR, lalu perbarui `IMPLEMENTATION_STATUS.md` §3 (status uji per fitur), §5
-(pengujian yang berhasil beserta konteks perangkat), dan §6 (yang masih belum diuji). Jangan
-menaikkan status menjadi "teruji di perangkat" sebelum checklist di atas benar-benar dijalankan.
+Catat hasil di tiket/PR, lalu perbarui `IMPLEMENTATION_STATUS.md`:
+
+- **§3** — status uji per fitur (kolom "status uji"), hanya untuk butir yang benar-benar diamati;
+- **§5** — pengujian baru beserta **konteks perangkat** (merek/model, versi Android, jumlah data, tanggal);
+- **§6** — hapus butir yang sudah tertutup, dan cantumkan bukti di §5;
+- **§7** — ubah status K9 (Doze) setelah §5K, F2A-1/F2A-2 setelah §5M;
+- **§10** — centang butir menuju Release Candidate yang sudah selesai.
+
+Jangan menaikkan status menjadi "teruji di perangkat" sebelum checklist di atas benar-benar dijalankan,
+dan jangan mengubah kesimpulan F2A-1 hanya berdasarkan pembacaan log — perlu pengamatan notifikasi muncul
+atau tidak muncul.

@@ -9,7 +9,11 @@
  *   pengguna menekan "Aktifkan pengingat" (`enable()`);
  * - selalu membaca ulang izin saat layar kembali fokus, karena pengguna bisa
  *   mengubah izin dari Pengaturan sistem;
- * - kegagalan notifikasi tidak pernah dilempar ke UI sebagai crash.
+ * - kegagalan notifikasi tidak pernah dilempar ke UI sebagai crash;
+ * - lima keadaan dibedakan: platform tidak didukung (web), modul native tidak
+ *   ada di build, izin belum ada, izin diblokir, dan kegagalan penjadwalan;
+ * - status `active` HANYA dipakai setelah sinkronisasi benar-benar berhasil,
+ *   sehingga kegagalan tidak pernah tampil sebagai "pengingat aktif".
  */
 
 import { useFocusEffect } from 'expo-router';
@@ -17,7 +21,7 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { useCallback, useState } from 'react';
 
 import { getAllSchedules } from '../db/schedules';
-import { getReminderPermissionState } from '../lib/notifications';
+import { getReminderPermissionState, PERMISSION_UNREADABLE_MESSAGE } from '../lib/notifications';
 import { enableClassReminders, syncClassReminders } from '../lib/notificationSync';
 
 export type ReminderStatus =
@@ -30,6 +34,13 @@ export type ReminderStatus =
   | { kind: 'blocked' }
   /** Platform tanpa dukungan notifikasi lokal (web). */
   | { kind: 'unsupported' }
+  /**
+   * Platform didukung, tetapi build yang terpasang tidak memuat modul native
+   * `expo-notifications`. Bukan penolakan izin dan tidak bisa diperbaiki dari
+   * dalam aplikasi: perlu memasang build baru.
+   */
+  | { kind: 'unavailable' }
+  /** Kegagalan operasional penjadwalan; layak dicoba ulang. */
   | { kind: 'error'; message: string };
 
 export type UseReminderStatusResult = {
@@ -61,9 +72,26 @@ export function useReminderStatus(): UseReminderStatusResult {
             return;
           }
 
+          // Modul native tidak termuat: jangan pernah diperlakukan sebagai
+          // "izin ditolak" — dialog izinnya tidak akan pernah muncul.
+          if (!permission.moduleAvailable) {
+            if (!cancelled) setStatus({ kind: 'unavailable' });
+            return;
+          }
+
           if (!permission.granted) {
             if (!cancelled) {
-              setStatus({ kind: permission.canAskAgain ? 'inactive' : 'blocked' });
+              // Pembacaan izin yang gagal bukan "diblokir": izin yang diblokir
+              // punya arti sendiri (pengguna menolak permanen), sedangkan ini
+              // kegagalan operasional yang layak dicoba ulang.
+              if (permission.status === 'error') {
+                setStatus({
+                  kind: 'error',
+                  message: PERMISSION_UNREADABLE_MESSAGE,
+                });
+              } else {
+                setStatus({ kind: permission.canAskAgain ? 'inactive' : 'blocked' });
+              }
             }
             return;
           }
@@ -76,7 +104,12 @@ export function useReminderStatus(): UseReminderStatusResult {
             setStatus({ kind: 'inactive' });
             return;
           }
+          if (result.status === 'module-unavailable') {
+            setStatus({ kind: 'unavailable' });
+            return;
+          }
           if (result.status === 'error') {
+            // Penjadwalan gagal: jangan pernah dilaporkan aktif.
             setStatus({ kind: 'error', message: result.message });
             return;
           }
@@ -121,8 +154,14 @@ export function useReminderStatus(): UseReminderStatusResult {
         const result = await enableClassReminders(db);
         setToken((value) => value + 1);
 
+        // Pembacaan ulang status tetap berjalan lewat `token`, tetapi hasil
+        // kegagalan ditampilkan langsung supaya pengguna tidak sempat melihat
+        // status lama seolah pengingat sudah aktif.
         if (result.status === 'error') {
           console.error('[notifikasi] Aktifasi pengingat gagal:', result.message);
+          setStatus({ kind: 'error', message: result.message });
+        } else if (result.status === 'module-unavailable') {
+          setStatus({ kind: 'unavailable' });
         }
       } catch (error) {
         console.error('[notifikasi] Aktifasi pengingat gagal:', error);

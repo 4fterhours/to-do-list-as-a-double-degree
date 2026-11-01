@@ -67,10 +67,22 @@ export async function getSchedulesForDay(
   return rows.map(toSchedule);
 }
 
-/** Seluruh jadwal mingguan, urut hari lalu jam mulai. */
+/**
+ * Urutan tampilan mingguan: Senin … Minggu.
+ *
+ * Nilai `day_of_week` di database TIDAK diubah dan tetap memakai konvensi
+ * JavaScript (0 = Minggu … 6 = Sabtu). Yang digeser hanya urutan bacanya:
+ * `(day_of_week + 6) % 7` memetakan Senin(1) → 0 … Sabtu(6) → 5, Minggu(0) → 6,
+ * sehingga Minggu tampil terakhir, sama seperti cara orang membaca jadwal
+ * kuliah. Hanya berlaku untuk daftar mingguan; query per hari
+ * (`getSchedulesForDay`) dan perhitungan notifikasi tidak terpengaruh.
+ */
+const WEEK_ORDER_EXPRESSION = '((schedules.day_of_week + 6) % 7)';
+
+/** Seluruh jadwal mingguan, urut Senin → Minggu lalu jam mulai. */
 export async function getAllSchedules(db: SQLiteDatabase): Promise<Schedule[]> {
   const rows = await db.getAllAsync<ScheduleRow>(
-    `${SELECT_SCHEDULE} ORDER BY schedules.day_of_week ASC, schedules.start_time ASC, schedules.id ASC`
+    `${SELECT_SCHEDULE} ORDER BY ${WEEK_ORDER_EXPRESSION} ASC, schedules.start_time ASC, schedules.id ASC`
   );
 
   return rows.map(toSchedule);

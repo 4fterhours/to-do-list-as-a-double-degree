@@ -21,7 +21,10 @@ import { ReminderStatusCard } from './ReminderStatusCard';
 import { ScreenHeader } from './ScreenHeader';
 
 /**
- * Daftar seluruh jadwal mingguan, dikelompokkan per hari (Senin → Minggu).
+ * Daftar seluruh jadwal mingguan, dikelompokkan per hari dengan urutan
+ * **Senin → Minggu**. Urutan itu berasal dari `getAllSchedules`
+ * (`ORDER BY ((day_of_week + 6) % 7)`), bukan dari pengurutan di komponen:
+ * layar hanya menyisipkan judul hari saat nilai `dayOfWeek` berubah.
  * Ketuk satu baris untuk mengedit. Tidak ada data contoh di layar ini: isinya
  * selalu berasal dari SQLite.
  */

@@ -35,7 +35,11 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning=ExperimentalWarning --import ./tests/support/setup.mjs --test-reporter=spec \"tests/**/*.test.mjs\"",
+    "test:db": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning=ExperimentalWarning --import ./tests/support/setup.mjs --test-reporter=spec \"tests/db/**/*.test.mjs\"",
+    "test:lib": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning=ExperimentalWarning --import ./tests/support/setup.mjs --test-reporter=spec \"tests/lib/**/*.test.mjs\"",
+    "test:sync": "node --test --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning=ExperimentalWarning --import ./tests/support/setup.mjs --test-reporter=spec \"tests/lib/notif*.test.mjs\""
   },
   "private": true
 }

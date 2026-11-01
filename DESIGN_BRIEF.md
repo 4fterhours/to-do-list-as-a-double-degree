@@ -161,7 +161,10 @@ components/           Kartu & baris Hari Ini, plus layar/komponen pengelolaan (T
 lib/tokens.ts         SATU-SATUNYA sumber nilai visual (mengikuti blok token di atas)
 theme/useTheme.ts     Logika pemilihan tema; tidak menyimpan nilai visual
 db/                    Skema, migrasi, seed, akses data (tanpa SQL di komponen)
-hooks/                useTodayData (data + waktu Hari Ini), useFocusQuery (query sadar fokus)
+hooks/                useTodayData (data + waktu Hari Ini), useFocusQuery (query sadar fokus),
+                      useReminderStatus (status pengingat untuk layar Jadwal)
+lib/notification*.ts  Batas native notifikasi (channel, izin, penjadwalan, rekonsiliasi)
+tests/                Test suite permanen; tidak memuat nilai visual
 ```
 
 `components/` dan `db/` baru dibuat bersama file pertamanya, karena Git tidak melacak folder kosong dan `.gitkeep` membuat `expo lint` gagal ("all files ignored"). App berada di `src/app/` sesuai lokasi bawaan template Expo SDK 58.
@@ -238,6 +241,29 @@ Aturan yang dijaga:
 - **Mata kuliah itu identitas, bukan satu sesi.** Pemilih mata kuliah di form tugas membaca tabel `courses`; satu mata kuliah dengan dua sesi mingguan tetap muncul satu kali.
 - **Tanggal & jam selalu waktu lokal perangkat**, disimpan sebagai epoch milidetik (`deadline_at`) dan sebagai teks `HH:mm` untuk jadwal mingguan.
 - **Pesan galat di dua tingkat**: per field (validasi) dan di atas tombol simpan (kegagalan SQLite), tanpa menghilangkan isian pengguna.
+
+### Kartu status pengingat kelas (Tahap 6)
+
+Kartu kecil di atas daftar jadwal. Satu-satunya komponen visual yang ditambahkan setelah Tahap 5, dan
+**tidak** mengubah token apa pun: seluruh nilainya diambil dari token yang sudah ada.
+
+| Elemen | Token yang dipakai |
+|---|---|
+| Wadah kartu | `colors.surface` (latar), `colors.border` (garis), `geometry.borderWidth`, `radius.small`, `spacing.md` (padding + jarak atas) |
+| Judul keadaan | `typography.bodyStrong`, `colors.text.primary` |
+| Keterangan & pesan kegagalan | `typography.caption`, `colors.text.secondary` |
+| Ikon | `geometry.icon`; `colors.text.secondary`, atau `colors.overdue.text` untuk keadaan yang perlu perhatian |
+| Tombol aksi ("Aktifkan pengingat", "Coba lagi", "Buka Pengaturan") | `geometry.touchTarget` (48 dp), `radius.small`, `colors.accent` — sama seperti tombol lain |
+
+Aturan yang dijaga:
+
+- **Setiap keadaan punya teks**, bukan hanya ikon atau warna: aktif, belum aktif, diblokir, tidak didukung,
+  modul tidak tersedia, dan gagal (dengan tombol coba lagi). Ini sejalan dengan aturan brief bahwa status
+  tidak boleh dibawa oleh warna saja.
+- **Kartu tidak pernah menjadi elemen utama layar.** Ia berada di bawah judul dan di atas daftar jadwal,
+  dengan bobot visual lebih rendah daripada kartu kelas di layar Hari Ini.
+- **`colors` dipilih per tema lewat `theme/useTheme.ts`**, bukan nilai tetap, sehingga dark mode mengikuti
+  aturan yang sama dengan komponen lain.
 
 ### Deviasi sadar terhadap brief
 

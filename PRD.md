@@ -63,7 +63,7 @@ Jadwal kuliah biasanya tersebar di PDF/WhatsApp dan deadline tugas di kepala ata
 - Pengelolaan tugas: lihat, tambah, ubah, hapus, tandai selesai, buka kembali.
 - Identitas mata kuliah yang konsisten (satu mata kuliah boleh punya beberapa sesi jadwal dan beberapa tugas).
 - Penyimpanan lokal persisten + migrasi skema berversi.
-- (Tahap berikutnya) Notifikasi lokal terjadwal.
+- Notifikasi lokal terjadwal (satu pengingat mingguan per jadwal; **diimplementasikan pada tahap 6**, belum diuji di perangkat).
 
 ### 4.2 Tidak boleh ditambahkan tanpa persetujuan eksplisit
 
@@ -89,7 +89,7 @@ Design brief sumber menulis "satu route, tanpa CRUD". **Keputusan produk saat in
 | **Mata kuliah** | Identitas akademik (mis. "Hukum Dagang") | Satu mata kuliah → **banyak** sesi jadwal + **banyak** tugas |
 | **Jadwal** | Satu sesi kuliah yang **berulang setiap minggu**: hari, jam mulai, jam selesai, ruang opsional, menit pengingat | Bukan kejadian per tanggal; tidak punya tanggal |
 | **Tugas** | Pekerjaan dengan judul, deadline absolut, status selesai, relasi opsional ke mata kuliah | Boleh tanpa mata kuliah ("Tugas mandiri") |
-| **Menit pengingat** | Angka 0–1440 yang disimpan per jadwal | **Belum** memicu notifikasi apa pun sampai tahap 6 |
+| **Menit pengingat** | Angka 0–1440 yang disimpan per jadwal | Sejak tahap 6 dipakai sebagai jarak mundur dari jam mulai untuk menjadwalkan pengingat lokal (FR-D2, FR-D5); belum diuji di perangkat |
 
 ## 6. Kebutuhan fungsional
 
@@ -335,7 +335,7 @@ Status mengacu pada **kode aktual**, bukan pada rencana. Rincian bukti ada di `I
 | 4 | CRUD mata kuliah, jadwal, tugas | Form & daftar jadwal, form & daftar tugas, relasi mata kuliah, migrasi v2 | **SEBAGIAN** — jadwal & tugas SELESAI di kode; layar kelola mata kuliah belum ada; semua **BELUM DIUJI** di perangkat |
 | 5 | Pengujian native Android & kompatibilitas UI | Build EAS, pasang APK di Android 10, checklist `ANDROID_TESTING.md`, perbaikan temuan | **BELUM DIMULAI** (belum ada build/APK) |
 | 6 | Notifikasi lokal | `expo-notifications`, channel, izin, penjadwalan ulang saat jadwal berubah, pembatalan saat dihapus | **SELESAI di kode** (`lib/classReminders.ts`, `lib/notifications.ts`, `lib/notificationScheduler.ts`, `lib/notificationSync.ts`, `hooks/useReminderStatus.ts`, `components/ReminderStatusCard.tsx`) · **BELUM DIUJI** di perangkat — perlu dev build baru |
-| 7 | Penyempurnaan, regresi, persiapan rilis | Regresi menyeluruh, aksesibilitas, performa, ikon/splash final, rilis internal | **BELUM DIMULAI** |
+| 7 | Penyempurnaan, regresi, persiapan rilis | Regresi menyeluruh, aksesibilitas, performa, ikon/splash final, rilis internal | **SEBAGIAN** — fondasi regresi sudah ada: test suite permanen 191 test di repo (`npm test`) + audit dokumentasi. Aksesibilitas/performa **belum diuji** di perangkat; ikon/splash belum ditinjau; rilis internal belum ada |
 
 Urutan ini mengikat: tahap berikutnya tidak dimulai sebelum tahap sebelumnya dilaporkan dan disetujui.
 
@@ -348,12 +348,12 @@ Urutan ini mengikat: tahap berikutnya tidak dimulai sebelum tahap sebelumnya dil
 
 | # | Hal | Dampak | Rencana |
 |---|---|---|---|
-| R1 | Belum ada pengujian di perangkat Android | Bug runtime (picker tanggal, safe area, font besar) belum diketahui | Tahap 5: build EAS + checklist perangkat |
+| R1 | Belum ada pengujian di perangkat Android | Bug runtime (picker tanggal, safe area, font besar, notifikasi) belum diketahui | **Masih terbuka** — tahap 5: build EAS + checklist perangkat |
 | R2 | `@react-native-community/datetimepicker` adalah modul native baru | Dev client lama di HP tidak memuatnya | Butuh build EAS baru sebelum uji tanggal/jam |
 | R3 | ~~Duplikat jadwal hanya ditolak constraint SQLite~~ | — | **Ditutup pada Tahap 5B**: ditolak di lapisan `db/` dengan pesan berbahasa Indonesia (AC-B10) |
 | R4 | Belum ada aksi ganti nama identitas mata kuliah | Untuk mengganti nama, pengguna memindahkan jadwal satu per satu dan nama lama tetap ada selama dipakai tugas | Ditutup oleh FR-B7 (P2) bila dibutuhkan |
 | R5 | ~~`ANDROID_TESTING.md` masih checklist "tanpa CRUD"~~ | — | **Ditutup pada Tahap 5B**: dokumen ditulis ulang untuk CRUD + skema v2 |
-| R6 | Tidak ada test suite di repo (uji sebelumnya berupa harness di luar repo) | Regresi tidak otomatis terdeteksi | Pertimbangkan test runner di tahap 7 |
+| R6 | ~~Tidak ada test suite di repo~~ | — | **Ditutup**: test suite permanen `npm test` (191 test, tanpa dependency baru). Batasnya: lapisan UI/hook belum tercakup |
 
 ## 13. Definisi selesai (per tahap)
 
@@ -374,3 +374,4 @@ Sebuah tahap dianggap selesai hanya jika **semua** terpenuhi:
 | 0.1 | 2026-10-29 | Dokumen awal: audit repository, kebutuhan produk, kriteria penerimaan, audit relasi tugas–mata kuliah, roadmap berbasis kode aktual |
 | 0.2 | 2026-10-29 | Tahap 5B: tambah FR-B5a (jadwal duplikat) + AC-B10/AC-B11, perjelas status relasi mata kuliah (pemilih identitas), tutup risiko R3 & R5 |
 | 0.3 | 2026-10-30 | Tahap 6: notifikasi lokal — FR-D2a..D2c, FR-D5, FR-D6, AC-D1..AC-D10, status roadmap tahap 6 |
+| 0.4 | 2026-11-01 | Fase 3: **hanya status pengerjaan** disamakan dengan bukti — §4.1 (notifikasi sudah diimplementasikan), §5 (menit pengingat dipakai sejak tahap 6), §11 (tahap 7 menjadi SEBAGIAN karena test suite sudah ada), §12 (R6 ditutup, R1 ditegaskan masih terbuka). **Tidak ada** tujuan, kebutuhan fungsional, kriteria penerimaan, prioritas, atau batasan produk yang diubah; status tahap 5 (uji perangkat Android) tetap **BELUM DIMULAI** |
